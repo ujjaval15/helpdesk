@@ -7,45 +7,66 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  ADMIN
-  AGENT
-}
-
-enum TicketStatus {
-  OPEN
-  RESOLVED
-  CLOSED
-}
-
-enum TicketCategory {
-  GENERAL_QUESTION
-  TECHNICAL_QUESTION
-  REFUND_REQUEST
-}
-
 model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  name      String
-  password  String
-  role      Role     @default(AGENT)
+  id            String    @id
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  tickets   Ticket[] @relation("AssignedTickets")
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
 }
 
-model Ticket {
-  id             String         @id @default(uuid())
-  subject        String
-  body           String
-  status         TicketStatus   @default(OPEN)
-  category       TicketCategory @default(GENERAL_QUESTION)
-  customerEmail  String
-  customerName   String?
-  aiSummary      String?
-  assignedTo     User?          @relation("AssignedTickets", fields: [assignedToId], references: [id])
-  assignedToId   String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
 }
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
