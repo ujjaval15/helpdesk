@@ -96,15 +96,7 @@ cd server && bun run db:seed
 - `bun run test:e2e:headed` — run with browser visible
 - `bun run test:e2e:ui` — open Playwright UI mode
 
-## E2E Testing
-
-Playwright is configured at the project root with a **separate test database** (`helpdesk_test`) so tests never touch dev data.
-
-- **Test DB:** `helpdesk_test` on the same Postgres container (port 5432). Created automatically via `docker/init-test-db.sql` on first `docker compose up`. For existing containers, run: `docker exec helpdesk-db-1 psql -U postgres -c "CREATE DATABASE helpdesk_test;"`.
-- **Test server:** Runs on port **3001** (not 3000) with env vars defined in `playwright.config.ts`. The client Vite dev server still runs on 5173.
-- **Global setup** (`e2e/global-setup.ts`): Pushes the Prisma schema to the test DB and seeds the admin user (`admin@test.com` / `testpassword123!`) before tests run.
-- **Config reference:** `server/.env.test` documents the test env vars (not loaded automatically — the Playwright config passes them via `webServer.env`).
-- Tests go in `e2e/` with the `.spec.ts` extension.
+> **Writing E2E tests:** Always use the `e2e-test-writer` agent (`.claude/agents/e2e-test-writer.md`) for creating or modifying Playwright tests. It has the full testing infrastructure details (test DB, global setup, credentials, config) and Playwright best practices.
 
 ## Authentication
 
