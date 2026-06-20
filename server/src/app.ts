@@ -1,10 +1,14 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
 
 const app = express();
+
+app.use(helmet());
 
 app.use(
   cors({
@@ -12,6 +16,18 @@ app.use(
     credentials: true,
   })
 );
+
+if (process.env.NODE_ENV === "production") {
+  const signInLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many login attempts, try again later" },
+  });
+
+  app.use("/api/auth/sign-in", signInLimiter);
+}
 
 app.all("/api/auth/*splat", toNodeHandler(auth));
 
@@ -22,7 +38,8 @@ app.get("/api/health", (_req, res) => {
 });
 
 app.get("/api/me", requireAuth, (req, res) => {
-  res.json({ user: req.user, session: req.session });
+  const { token, ...safeSession } = req.session!;
+  res.json({ user: req.user, session: safeSession });
 });
 
 const PORT = process.env.PORT || 3000;

@@ -30,12 +30,19 @@ helpdesk/
 │   │   ├── index.ts                # entrypoint (imports app)
 │   │   ├── db.ts                   # Prisma client (pg adapter)
 │   │   ├── lib/auth.ts             # Better Auth config
-│   │   ├── middleware/requireAuth.ts
+│   │   ├── middleware/requireAuth.ts   # session check → 401
+│   │   ├── middleware/requireAdmin.ts  # role check → 403 (use after requireAuth)
 │   │   ├── types/express.d.ts      # augments Request with user/session
 │   │   └── generated/prisma/       # generated Prisma client (output dir)
 │   └── prisma/
 │       ├── schema.prisma
 │       └── seed.ts                 # seeds the admin user from env
+│   └── .env.example               # env var template (no real secrets)
+├── docker/
+│   └── init-test-db.sql       # creates helpdesk_test DB on first docker start
+├── e2e/                       # Playwright E2E tests
+│   └── global-setup.ts        # pushes schema + seeds test DB before tests
+├── playwright.config.ts       # Playwright config (test server on port 3001)
 ├── docker-compose.yml
 ├── project-scope.md
 ├── tech-stack.md
@@ -45,7 +52,7 @@ helpdesk/
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, react-hook-form + zod, shadcn/ui (built on **Base UI**, not Radix), lucide-react
-- **Backend:** Express 5, TypeScript, Bun runtime
+- **Backend:** Express 5, TypeScript, Bun runtime, helmet, express-rate-limit
 - **Auth:** Better Auth (email/password, database sessions)
 - **Database:** PostgreSQL (via Docker), Prisma ORM (`@prisma/adapter-pg`)
 - **AI:** Claude API (Anthropic) — planned
@@ -84,6 +91,21 @@ cd server && bun run db:seed
 - `bun run preview` — preview the production build
 - `bun run lint` — run ESLint
 
+### E2E Tests (from project root)
+- `bun run test:e2e` — run Playwright tests (headless)
+- `bun run test:e2e:headed` — run with browser visible
+- `bun run test:e2e:ui` — open Playwright UI mode
+
+## E2E Testing
+
+Playwright is configured at the project root with a **separate test database** (`helpdesk_test`) so tests never touch dev data.
+
+- **Test DB:** `helpdesk_test` on the same Postgres container (port 5432). Created automatically via `docker/init-test-db.sql` on first `docker compose up`. For existing containers, run: `docker exec helpdesk-db-1 psql -U postgres -c "CREATE DATABASE helpdesk_test;"`.
+- **Test server:** Runs on port **3001** (not 3000) with env vars defined in `playwright.config.ts`. The client Vite dev server still runs on 5173.
+- **Global setup** (`e2e/global-setup.ts`): Pushes the Prisma schema to the test DB and seeds the admin user (`admin@test.com` / `testpassword123!`) before tests run.
+- **Config reference:** `server/.env.test` documents the test env vars (not loaded automatically — the Playwright config passes them via `webServer.env`).
+- Tests go in `e2e/` with the `.spec.ts` extension.
+
 ## Authentication
 
 Auth is handled by **Better Auth** with email/password and database-backed sessions.
@@ -96,10 +118,13 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 - `trustedOrigins` is set from `CLIENT_URL` (defaults to `http://localhost:5173`).
 - Handler mounted in `app.ts` via `app.all("/api/auth/*splat", toNodeHandler(auth))` — **before** `express.json()` so Better Auth can read raw request bodies.
 - CORS is configured with `credentials: true` and `origin: CLIENT_URL` so session cookies flow cross-origin in dev.
+- **Security headers:** `helmet` is applied before CORS (`app.use(helmet())`), adding `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, `Strict-Transport-Security`, etc.
+- **Rate limiting:** `express-rate-limit` limits `/api/auth/sign-in` to 10 requests per 15-minute window per IP. **Only enabled in production** (`NODE_ENV=production`). Applied before the Better Auth handler.
 
-### Protecting routes (`server/src/middleware/requireAuth.ts`)
-- `requireAuth` calls `auth.api.getSession({ headers })`, returns **401** if there is no session, otherwise attaches `req.user` and `req.session` (types augmented in `server/src/types/express.d.ts` via `auth.$Infer.Session`).
-- Example usage: `app.get("/api/me", requireAuth, ...)`.
+### Protecting routes (`server/src/middleware/`)
+- **`requireAuth`** calls `auth.api.getSession({ headers })`, returns **401** if there is no session, otherwise attaches `req.user` and `req.session` (types augmented in `server/src/types/express.d.ts` via `auth.$Infer.Session`).
+- **`requireAdmin`** checks `req.user.role === "admin"`, returns **403** if not. Must be chained **after** `requireAuth`.
+- Example usage: `app.get("/api/me", requireAuth, ...)` or `app.get("/api/admin/users", requireAuth, requireAdmin, ...)`.
 
 ### Client (`client/src/lib/auth-client.ts`)
 - `createAuthClient` from `better-auth/react`; exports `signIn`, `signOut`, `useSession`.
@@ -111,6 +136,7 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 
 ### Seeding the admin (`server/prisma/seed.ts`)
 - Reads `ADMIN_EMAIL` / `ADMIN_PASSWORD` from `server/.env`.
+- **Rejects passwords shorter than 12 characters** before proceeding.
 - Creates a user with `role: admin` and links a `credential` account with a hashed password via `auth.$context`. Skips if the user already exists.
 
 ### Creating additional users
@@ -135,7 +161,9 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 - `BETTER_AUTH_SECRET` — Better Auth signing secret
 - `BETTER_AUTH_URL` — Better Auth base URL (e.g. `http://localhost:3000`)
 - `CLIENT_URL` — allowed CORS origin / trusted origin (e.g. `http://localhost:5173`)
-- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — credentials used by the seed script
+- `ADMIN_EMAIL` / `ADMIN_PASSWORD` — credentials used by the seed script (password must be 12+ characters)
+
+See `server/.env.example` for a template with all required variables.
 
 ## API
 
@@ -144,7 +172,7 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 - Current endpoints:
   - `ALL /api/auth/*` — Better Auth (sign-in, sign-out, get-session, etc.)
   - `GET /api/health` — `{ status: "ok" }`
-  - `GET /api/me` — current user + session (requires auth, 401 otherwise)
+  - `GET /api/me` — current user + session (requires auth, 401 otherwise). Session token is stripped from the response.
 
 ## Documentation
 

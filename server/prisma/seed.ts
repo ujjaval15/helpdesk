@@ -14,6 +14,11 @@ if (!email || !password) {
   process.exit(1);
 }
 
+if (password.length < 12) {
+  console.error("ADMIN_PASSWORD must be at least 12 characters");
+  process.exit(1);
+}
+
 async function seed() {
   const existing = await prisma.user.findUnique({ where: { email } });
 
