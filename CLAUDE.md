@@ -51,7 +51,7 @@ helpdesk/
 
 ## Tech Stack
 
-- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, react-hook-form + zod, shadcn/ui (built on **Base UI**, not Radix), lucide-react
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, react-hook-form + zod, shadcn/ui (built on **Base UI**, not Radix), lucide-react, axios, TanStack React Query
 - **Backend:** Express 5, TypeScript, Bun runtime, helmet, express-rate-limit
 - **Auth:** Better Auth (email/password, database sessions)
 - **Database:** PostgreSQL (via Docker), Prisma ORM (`@prisma/adapter-pg`)
@@ -165,6 +165,13 @@ See `server/.env.example` for a template with all required variables.
   - `ALL /api/auth/*` — Better Auth (sign-in, sign-out, get-session, etc.)
   - `GET /api/health` — `{ status: "ok" }`
   - `GET /api/me` — current user + session (requires auth, 401 otherwise). Session token is stripped from the response.
+  - `GET /api/admin/users` — list all users (requires auth + admin role, 401/403 otherwise). Returns `{ users: [...] }` with id, name, email, role, createdAt, image.
+
+## Data Fetching
+
+- Use **axios** for all HTTP requests — never use `fetch` directly.
+- Use **TanStack React Query** (`useQuery`, `useMutation`) for all server state in React components — never use `useEffect` + `useState` for data fetching.
+- `QueryClientProvider` is set up in `client/src/main.tsx`.
 
 ## Documentation
 

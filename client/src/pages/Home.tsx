@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import axios from "axios";
+import { useQuery } from "@tanstack/react-query";
 import NavBar from "../components/NavBar";
 import {
   Card,
@@ -9,14 +10,11 @@ import {
 } from "@/components/ui/card";
 
 function Home() {
-  const [status, setStatus] = useState<string>("Checking...");
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((res) => res.json())
-      .then((data) => setStatus(data.status))
-      .catch(() => setStatus("error"));
-  }, []);
+  const { data: status = "Checking..." } = useQuery({
+    queryKey: ["health"],
+    queryFn: () =>
+      axios.get<{ status: string }>("/api/health").then((res) => res.data.status),
+  });
 
   const isHealthy = status === "ok";
 
