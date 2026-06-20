@@ -10,6 +10,13 @@ export const auth = betterAuth({
     enabled: true,
     disableSignUp: true,
   },
+  session: {
+    // Sessions time out after 5 minutes of inactivity. updateAge: 0 refreshes
+    // the expiry on every authenticated request, so active users stay signed
+    // in while an idle session is invalidated after 5 minutes.
+    expiresIn: 60 * 5, // 5 minutes
+    updateAge: 0,
+  },
   user: {
     additionalFields: {
       role: {

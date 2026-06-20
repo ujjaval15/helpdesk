@@ -1,5 +1,28 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { LogOut } from "lucide-react";
 import { signOut, useSession } from "../lib/auth-client";
+import { cn } from "@/lib/utils";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function initials(name: string) {
+  return name
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+}
 
 function NavBar() {
   const navigate = useNavigate();
@@ -11,20 +34,53 @@ function NavBar() {
   }
 
   return (
-    <header className="border-b border-gray-200 bg-white">
+    <header className="border-b border-border bg-background">
       <nav className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-        <span className="text-lg font-semibold text-gray-900">Helpdesk</span>
+        <div className="flex items-center gap-6">
+          <Link
+            to="/"
+            className="text-lg font-semibold text-foreground"
+          >
+            Helpdesk
+          </Link>
+          {session?.user.role === "admin" && (
+            <Link
+              to="/users"
+              className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Users
+            </Link>
+          )}
+        </div>
 
         {session && (
-          <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-700">{session.user.name}</span>
-            <button
-              onClick={handleSignOut}
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "ghost", size: "icon" }),
+                "rounded-full",
+              )}
             >
-              Sign out
-            </button>
-          </div>
+              <Avatar className="size-8">
+                <AvatarFallback>{initials(session.user.name)}</AvatarFallback>
+              </Avatar>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuGroup>
+                <DropdownMenuLabel className="flex flex-col gap-0.5">
+                  <span className="font-medium">{session.user.name}</span>
+                  <span className="text-xs font-normal text-muted-foreground">
+                    {session.user.email}
+                  </span>
+                </DropdownMenuLabel>
+              </DropdownMenuGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleSignOut}>
+                <LogOut />
+                Sign out
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </nav>
     </header>

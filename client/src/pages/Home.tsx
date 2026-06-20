@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
 import NavBar from "../components/NavBar";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 function Home() {
   const [status, setStatus] = useState<string>("Checking...");
@@ -11,19 +18,36 @@ function Home() {
       .catch(() => setStatus("error"));
   }, []);
 
+  const isHealthy = status === "ok";
+
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-background">
       <NavBar />
-      <main className="flex flex-col items-center justify-center px-4 py-24 text-center">
-        <h1 className="text-4xl font-bold text-gray-900">Helpdesk</h1>
-        <p className="mt-2 text-gray-600">AI-Powered Ticket Management System</p>
-        <p
-          className={`mt-4 text-sm font-medium ${
-            status === "ok" ? "text-green-600" : "text-red-600"
-          }`}
-        >
-          Server status: {status}
+      <main className="mx-auto flex max-w-5xl flex-col items-center px-4 py-24 text-center">
+        <h1 className="text-4xl font-bold tracking-tight text-foreground">
+          Helpdesk
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          AI-Powered Ticket Management System
         </p>
+
+        <Card className="mt-8 w-full max-w-sm text-left">
+          <CardHeader>
+            <CardTitle>Server status</CardTitle>
+            <CardDescription>Backend health check</CardDescription>
+          </CardHeader>
+          <CardContent className="flex items-center gap-2">
+            <span
+              className={`size-2.5 rounded-full ${
+                isHealthy ? "bg-emerald-500" : "bg-destructive"
+              }`}
+              aria-hidden
+            />
+            <span className="text-sm font-medium text-foreground">
+              {status}
+            </span>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );

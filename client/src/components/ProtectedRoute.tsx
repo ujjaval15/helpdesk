@@ -2,7 +2,13 @@ import type { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useSession } from "../lib/auth-client";
 
-function ProtectedRoute({ children }: { children: ReactNode }) {
+function ProtectedRoute({
+  children,
+  requireAdmin = false,
+}: {
+  children: ReactNode;
+  requireAdmin?: boolean;
+}) {
   const { data: session, isPending } = useSession();
 
   if (isPending) {
@@ -15,6 +21,10 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requireAdmin && session.user.role !== "admin") {
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
