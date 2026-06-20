@@ -8,9 +8,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function Home() {
-  const { data: status = "Checking..." } = useQuery({
+  const { data: status, isPending } = useQuery({
     queryKey: ["health"],
     queryFn: () =>
       axios.get<{ status: string }>("/api/health").then((res) => res.data.status),
@@ -35,15 +36,24 @@ function Home() {
             <CardDescription>Backend health check</CardDescription>
           </CardHeader>
           <CardContent className="flex items-center gap-2">
-            <span
-              className={`size-2.5 rounded-full ${
-                isHealthy ? "bg-emerald-500" : "bg-destructive"
-              }`}
-              aria-hidden
-            />
-            <span className="text-sm font-medium text-foreground">
-              {status}
-            </span>
+            {isPending ? (
+              <>
+                <Skeleton className="size-2.5 rounded-full" />
+                <Skeleton className="h-4 w-16" />
+              </>
+            ) : (
+              <>
+                <span
+                  className={`size-2.5 rounded-full ${
+                    isHealthy ? "bg-emerald-500" : "bg-destructive"
+                  }`}
+                  aria-hidden
+                />
+                <span className="text-sm font-medium text-foreground">
+                  {status}
+                </span>
+              </>
+            )}
           </CardContent>
         </Card>
       </main>
