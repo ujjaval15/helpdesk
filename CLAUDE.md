@@ -91,12 +91,26 @@ cd server && bun run db:seed
 - `bun run preview` — preview the production build
 - `bun run lint` — run ESLint
 
+### Component / Unit Tests (from `client/`)
+- `bun run test` — run all tests once
+- `bun run test:watch` — run in watch mode
+
 ### E2E Tests (from project root)
 - `bun run test:e2e` — run Playwright tests (headless)
 - `bun run test:e2e:headed` — run with browser visible
 - `bun run test:e2e:ui` — open Playwright UI mode
 
-> **Writing E2E tests:** Always use the `e2e-test-writer` agent (`.claude/agents/e2e-test-writer.md`) for creating or modifying Playwright tests. It has the full testing infrastructure details (test DB, global setup, credentials, config) and Playwright best practices.
+## Testing
+
+### Component / Unit Tests
+- **Stack:** Vitest + React Testing Library + jsdom. Config in `client/vite.config.ts` (`test` block), setup file at `client/src/test/setup.ts`.
+- **Test files:** Place next to the component as `<Component>.test.tsx` (e.g., `Users.test.tsx` alongside `Users.tsx`).
+- **Rendering:** Use `renderWithProviders()` from `client/src/test/render.tsx` — it wraps components in `QueryClientProvider` (retry disabled) and `MemoryRouter`. Use this for all component tests instead of bare `render()`.
+- **Mocking:** Mock `axios` with `vi.mock("axios")` and mock `../lib/auth-client` to provide a session. Do not make real API calls in unit tests.
+- **What to cover:** Loading states (skeletons), error states, empty states, rendered data, correct API endpoint calls, and user interactions.
+
+### E2E Tests
+> Always use the `e2e-test-writer` agent (`.claude/agents/e2e-test-writer.md`) for creating or modifying Playwright tests. It has the full testing infrastructure details (test DB, global setup, credentials, config) and Playwright best practices.
 
 ## Authentication
 

@@ -23,7 +23,7 @@ interface User {
 }
 
 function Users() {
-  const { data: users, isPending } = useQuery({
+  const { data: users, isPending, isError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () =>
       axios.get<{ users: User[] }>("/api/admin/users").then((res) => res.data.users),
@@ -39,6 +39,12 @@ function Users() {
         <p className="mt-2 text-muted-foreground">
           Manage team members and their roles.
         </p>
+
+        {isError && (
+          <p className="mt-8 text-sm text-destructive" role="alert">
+            Failed to load users. Please try again later.
+          </p>
+        )}
 
         <Table className="mt-8">
           <TableHeader>
