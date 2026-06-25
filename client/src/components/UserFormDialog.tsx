@@ -14,35 +14,61 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import type { User } from "@/components/UsersTable";
 
-const createUserSchema = z.object({
+const userFormSchema = z.object({
   name: z.string().trim().min(3, "Name must be at least 3 characters"),
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
-  password: z.string().trim().min(8, "Password must be at least 8 characters"),
+  password: z.string().trim(),
 });
 
-type CreateUserForm = z.infer<typeof createUserSchema>;
+type UserFormData = z.infer<typeof userFormSchema>;
 
-interface CreateUserDialogProps {
+interface UserFormDialogProps {
+  user?: User | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
+function UserFormDialog({ user, open, onOpenChange }: UserFormDialogProps) {
+  const isEdit = !!user;
   const queryClient = useQueryClient();
+
+  const passwordSchema = isEdit
+    ? userFormSchema.extend({
+        password: z
+          .string()
+          .trim()
+          .min(8, "Password must be at least 8 characters")
+          .or(z.literal("")),
+      })
+    : userFormSchema.extend({
+        password: z
+          .string()
+          .trim()
+          .min(8, "Password must be at least 8 characters"),
+      });
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
+  } = useForm<UserFormData>({
+    resolver: zodResolver(passwordSchema),
   });
 
   const mutation = useMutation({
-    mutationFn: (data: CreateUserForm) =>
-      axios.post("/api/admin/users", data),
+    mutationFn: (data: UserFormData) => {
+      if (isEdit) {
+        return axios.patch(`/api/admin/users/${user.id}`, {
+          name: data.name,
+          email: data.email,
+          ...(data.password ? { password: data.password } : {}),
+        });
+      }
+      return axios.post("/api/admin/users", data);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin", "users"] });
       onOpenChange(false);
@@ -50,11 +76,15 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   });
 
   useEffect(() => {
-    if (!open) {
-      reset();
+    if (open) {
+      reset({
+        name: user?.name ?? "",
+        email: user?.email ?? "",
+        password: "",
+      });
       mutation.reset();
     }
-  }, [open]);
+  }, [open, user]);
 
   const serverError =
     mutation.error && axios.isAxiosError(mutation.error)
@@ -65,9 +95,11 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogBackdrop />
       <DialogPopup>
-        <DialogTitle>Create User</DialogTitle>
+        <DialogTitle>{isEdit ? "Edit User" : "Create User"}</DialogTitle>
         <DialogDescription className="mt-1">
-          Add a new agent to the team.
+          {isEdit
+            ? "Update user details. Leave password blank to keep it unchanged."
+            : "Add a new agent to the team."}
         </DialogDescription>
 
         <form
@@ -76,9 +108,9 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
           noValidate
         >
           <div className="space-y-2">
-            <Label htmlFor="create-name">Name</Label>
+            <Label htmlFor="user-name">Name</Label>
             <Input
-              id="create-name"
+              id="user-name"
               autoComplete="name"
               aria-invalid={!!errors.name}
               {...register("name")}
@@ -89,9 +121,9 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-email">Email</Label>
+            <Label htmlFor="user-email">Email</Label>
             <Input
-              id="create-email"
+              id="user-email"
               type="email"
               autoComplete="email"
               aria-invalid={!!errors.email}
@@ -105,11 +137,12 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="create-password">Password</Label>
+            <Label htmlFor="user-password">Password</Label>
             <Input
-              id="create-password"
+              id="user-password"
               type="password"
               autoComplete="new-password"
+              placeholder={isEdit ? "Leave blank to keep unchanged" : undefined}
               aria-invalid={!!errors.password}
               {...register("password")}
             />
@@ -135,7 +168,13 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
               Cancel
             </Button>
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Creating…" : "Create"}
+              {mutation.isPending
+                ? isEdit
+                  ? "Saving…"
+                  : "Creating…"
+                : isEdit
+                  ? "Save"
+                  : "Create"}
             </Button>
           </div>
         </form>
@@ -144,4 +183,4 @@ function CreateUserDialog({ open, onOpenChange }: CreateUserDialogProps) {
   );
 }
 
-export default CreateUserDialog;
+export default UserFormDialog;

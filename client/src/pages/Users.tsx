@@ -4,11 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { Button } from "@/components/ui/button";
-import CreateUserDialog from "@/components/CreateUserDialog";
+import UserFormDialog from "@/components/UserFormDialog";
 import UsersTable, { type User } from "@/components/UsersTable";
 
+type DialogState = null | "create" | User;
+
 function Users() {
-  const [createOpen, setCreateOpen] = useState(false);
+  const [dialog, setDialog] = useState<DialogState>(null);
   const { data: users, isPending, isError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () =>
@@ -26,13 +28,17 @@ function Users() {
           <p className="text-muted-foreground">
             Manage team members and their roles.
           </p>
-          <Button onClick={() => setCreateOpen(true)}>
+          <Button onClick={() => setDialog("create")}>
             <Plus className="mr-1.5 size-4" />
             Create User
           </Button>
         </div>
 
-        <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+        <UserFormDialog
+          open={dialog !== null}
+          user={typeof dialog === "object" ? dialog : undefined}
+          onOpenChange={(open) => { if (!open) setDialog(null); }}
+        />
 
         {isError && (
           <p className="mt-8 text-sm text-destructive" role="alert">
@@ -40,7 +46,7 @@ function Users() {
           </p>
         )}
 
-        <UsersTable users={users} isPending={isPending} />
+        <UsersTable users={users} isPending={isPending} onEdit={setDialog} />
       </main>
     </div>
   );

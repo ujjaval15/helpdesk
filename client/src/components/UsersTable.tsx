@@ -1,3 +1,4 @@
+import { Pencil } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export interface User {
   id: string;
@@ -22,9 +24,10 @@ export interface User {
 interface UsersTableProps {
   users: User[] | undefined;
   isPending: boolean;
+  onEdit: (user: User) => void;
 }
 
-function UsersTable({ users, isPending }: UsersTableProps) {
+function UsersTable({ users, isPending, onEdit }: UsersTableProps) {
   return (
     <Table className="mt-8">
       <TableHeader>
@@ -33,6 +36,7 @@ function UsersTable({ users, isPending }: UsersTableProps) {
           <TableHead>Email</TableHead>
           <TableHead>Role</TableHead>
           <TableHead>Created</TableHead>
+          <TableHead className="w-12" />
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -53,6 +57,9 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                 </TableCell>
                 <TableCell>
                   <Skeleton className="h-4 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="size-8 rounded-md" />
                 </TableCell>
               </TableRow>
             ))
@@ -79,6 +86,16 @@ function UsersTable({ users, isPending }: UsersTableProps) {
                 </TableCell>
                 <TableCell>
                   {new Date(user.createdAt).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onEdit(user)}
+                    aria-label={`Edit ${user.name}`}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
                 </TableCell>
               </TableRow>
             ))}

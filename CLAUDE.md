@@ -183,6 +183,7 @@ See `server/.env.example` for a template with all required variables.
   - `GET /api/me` — current user + session (requires auth, 401 otherwise). Session token is stripped from the response.
   - `GET /api/admin/users` — list all users (requires auth + admin role, 401/403 otherwise). Returns `{ users: [...] }` with id, name, email, role, createdAt, image.
   - `POST /api/admin/users` — create a new agent user (requires auth + admin role). Body: `{ name, email, password }`. Returns `{ user }` with 201, or `{ errors }` with 400 for validation, or `{ error }` with 409 for duplicate email.
+  - `PATCH /api/admin/users/:id` — update a user (requires auth + admin role). Body: `{ name, email, password? }`. Password is optional — omit or send empty string to keep unchanged. Returns `{ user }` with 200, or 400/404/409 for validation/not found/duplicate email.
 
 ## Validation
 
