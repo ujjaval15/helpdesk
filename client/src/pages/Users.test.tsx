@@ -1,4 +1,5 @@
-import { screen, within } from "@testing-library/react";
+import { screen, within, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { vi, describe, it, expect, beforeEach } from "vitest";
 import axios from "axios";
 import { renderWithProviders } from "../test/render";
@@ -181,5 +182,60 @@ describe("Users page", () => {
     const tbody = document.querySelector('[data-slot="table-body"]')!;
     const rows = tbody.querySelectorAll('[data-slot="table-row"]');
     expect(rows).toHaveLength(0);
+  });
+
+  describe("Create User dialog", () => {
+    beforeEach(() => {
+      mockedAxios.get.mockResolvedValue({ data: { users: mockUsers } });
+    });
+
+    it("opens when Create User button is clicked", async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Users />);
+
+      await screen.findByText("Alice Admin");
+
+      expect(screen.queryByText("Add a new agent to the team.")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      expect(screen.getByText("Add a new agent to the team.")).toBeInTheDocument();
+      expect(screen.getByLabelText("Name")).toBeInTheDocument();
+      expect(screen.getByLabelText("Email")).toBeInTheDocument();
+      expect(screen.getByLabelText("Password")).toBeInTheDocument();
+    });
+
+    it("closes when Escape key is pressed", async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Users />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      expect(screen.getByText("Add a new agent to the team.")).toBeInTheDocument();
+
+      await user.keyboard("{Escape}");
+
+      await waitFor(() => {
+        expect(screen.queryByText("Add a new agent to the team.")).not.toBeInTheDocument();
+      });
+    });
+
+    it("closes when clicking outside the dialog", async () => {
+      const user = userEvent.setup();
+      renderWithProviders(<Users />);
+
+      await screen.findByText("Alice Admin");
+      await user.click(screen.getByRole("button", { name: /create user/i }));
+
+      expect(screen.getByText("Add a new agent to the team.")).toBeInTheDocument();
+
+      const backdrop = document.querySelector('[data-slot="dialog-backdrop"]')!;
+      await user.click(backdrop);
+
+      await waitFor(() => {
+        expect(screen.queryByText("Add a new agent to the team.")).not.toBeInTheDocument();
+      });
+    });
   });
 });
