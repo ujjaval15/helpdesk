@@ -30,6 +30,7 @@ helpdesk/
 │   │   ├── index.ts                # entrypoint (imports app)
 │   │   ├── db.ts                   # Prisma client (pg adapter)
 │   │   ├── lib/auth.ts             # Better Auth config
+│   │   ├── routes/users.ts         # /api/admin/users — list + create
 │   │   ├── middleware/requireAuth.ts   # session check → 401
 │   │   ├── middleware/requireAdmin.ts  # role check → 403 (use after requireAuth)
 │   │   ├── types/express.d.ts      # augments Request with user/session
@@ -52,7 +53,7 @@ helpdesk/
 ## Tech Stack
 
 - **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, React Router v7, react-hook-form + zod, shadcn/ui (built on **Base UI**, not Radix), lucide-react, axios, TanStack React Query
-- **Backend:** Express 5, TypeScript, Bun runtime, helmet, express-rate-limit
+- **Backend:** Express 5, TypeScript, Bun runtime, helmet, express-rate-limit, zod. Express 5 automatically handles rejected promises in async route handlers — do not wrap route logic in try/catch.
 - **Auth:** Better Auth (email/password, database sessions)
 - **Database:** PostgreSQL (via Docker), Prisma ORM (`@prisma/adapter-pg`)
 - **AI:** Claude API (Anthropic) — planned
@@ -175,11 +176,19 @@ See `server/.env.example` for a template with all required variables.
 
 - Base URL: `http://localhost:3000`; all endpoints prefixed with `/api`.
 - Client proxies `/api` requests to the server via `client/vite.config.ts`.
+- **Route modules** live in `server/src/routes/` as Express routers, mounted in `app.ts` (e.g. `app.use("/api/admin/users", usersRouter)`). Keep `app.ts` for middleware/config; put endpoint logic in route modules.
 - Current endpoints:
   - `ALL /api/auth/*` — Better Auth (sign-in, sign-out, get-session, etc.)
   - `GET /api/health` — `{ status: "ok" }`
   - `GET /api/me` — current user + session (requires auth, 401 otherwise). Session token is stripped from the response.
   - `GET /api/admin/users` — list all users (requires auth + admin role, 401/403 otherwise). Returns `{ users: [...] }` with id, name, email, role, createdAt, image.
+  - `POST /api/admin/users` — create a new agent user (requires auth + admin role). Body: `{ name, email, password }`. Returns `{ user }` with 201, or `{ errors }` with 400 for validation, or `{ error }` with 409 for duplicate email.
+
+## Validation
+
+- Use **zod** for request validation on both client and server.
+- **Client:** react-hook-form with `zodResolver` for form validation.
+- **Server:** Define a zod schema per endpoint, validate with `schema.safeParse(req.body)`, and return field-level errors as `{ errors: { field: "message" } }` with status 400.
 
 ## Data Fetching
 
