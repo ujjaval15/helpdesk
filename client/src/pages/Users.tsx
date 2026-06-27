@@ -5,12 +5,14 @@ import { Plus } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { Button } from "@/components/ui/button";
 import UserFormDialog from "@/components/UserFormDialog";
+import DeleteUserDialog from "@/components/DeleteUserDialog";
 import UsersTable, { type User } from "@/components/UsersTable";
 
 type DialogState = null | "create" | User;
 
 function Users() {
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [deleteUser, setDeleteUser] = useState<User | null>(null);
   const { data: users, isPending, isError } = useQuery({
     queryKey: ["admin", "users"],
     queryFn: () =>
@@ -40,13 +42,24 @@ function Users() {
           onOpenChange={(open) => { if (!open) setDialog(null); }}
         />
 
+        <DeleteUserDialog
+          user={deleteUser}
+          open={!!deleteUser}
+          onOpenChange={(open) => { if (!open) setDeleteUser(null); }}
+        />
+
         {isError && (
           <p className="mt-8 text-sm text-destructive" role="alert">
             Failed to load users. Please try again later.
           </p>
         )}
 
-        <UsersTable users={users} isPending={isPending} onEdit={setDialog} />
+        <UsersTable
+          users={users}
+          isPending={isPending}
+          onEdit={setDialog}
+          onDelete={setDeleteUser}
+        />
       </main>
     </div>
   );

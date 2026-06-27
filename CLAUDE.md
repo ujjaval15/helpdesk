@@ -159,6 +159,7 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 - `DATABASE_URL` configured in `server/.env`; connection uses the `pg` adapter (`server/src/db.ts`).
 - **Current models:** `User`, `Session`, `Account`, `Verification` (the Better Auth schema).
 - **Current enum:** `Role` — values `admin`, `agent` (lowercase).
+- **Soft deletion:** `User` has an optional `deletedAt` field. Queries filter by `deletedAt: null` to exclude soft-deleted users. Admin users cannot be soft-deleted.
 - **Planned (not yet in schema):** `Ticket` model with `TicketStatus` (OPEN, RESOLVED, CLOSED) and `TicketCategory` (GENERAL_QUESTION, TECHNICAL_QUESTION, REFUND_REQUEST) — see [implementation-plan.md](implementation-plan.md).
 
 ## Environment Variables (`server/.env`)
@@ -184,6 +185,7 @@ See `server/.env.example` for a template with all required variables.
   - `GET /api/admin/users` — list all users (requires auth + admin role, 401/403 otherwise). Returns `{ users: [...] }` with id, name, email, role, createdAt, image.
   - `POST /api/admin/users` — create a new agent user (requires auth + admin role). Body: `{ name, email, password }`. Returns `{ user }` with 201, or `{ errors }` with 400 for validation, or `{ error }` with 409 for duplicate email.
   - `PATCH /api/admin/users/:id` — update a user (requires auth + admin role). Body: `{ name, email, password? }`. Password is optional — omit or send empty string to keep unchanged. Returns `{ user }` with 200, or 400/404/409 for validation/not found/duplicate email.
+  - `DELETE /api/admin/users/:id` — soft-delete a user (requires auth + admin role). Sets `deletedAt` timestamp. Admin users cannot be deleted (403). Returns `{ success: true }` with 200, or 403/404.
 
 ## Validation
 
