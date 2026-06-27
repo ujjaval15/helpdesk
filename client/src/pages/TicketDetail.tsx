@@ -1,17 +1,31 @@
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import NavBar from "../components/NavBar";
+import { useSession } from "@/lib/auth-client";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+} from "@/components/ui/select";
 import {
   type TicketStatus,
   type TicketCategory,
   statusLabel,
   categoryLabel,
 } from "@/components/TicketsTable";
+
+interface Agent {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 interface TicketDetail {
   id: number;
@@ -35,8 +49,13 @@ const statusVariant: Record<
   CLOSED: "secondary",
 };
 
+const UNASSIGNED = "UNASSIGNED";
+
 function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const { data: session } = useSession();
+  const queryClient = useQueryClient();
+  const isAdmin = session?.user?.role === "admin";
 
   const { data, isPending, isError } = useQuery({
     queryKey: ["ticket", id],
@@ -45,6 +64,32 @@ function TicketDetailPage() {
         .get<{ ticket: TicketDetail }>(`/api/tickets/${id}`)
         .then((res) => res.data.ticket),
   });
+
+  const { data: agents } = useQuery({
+    queryKey: ["agents"],
+    queryFn: () =>
+      axios
+        .get<{ users: Agent[] }>("/api/admin/users")
+        .then((res) => res.data.users),
+    enabled: isAdmin,
+  });
+
+  const assignMutation = useMutation({
+    mutationFn: (assignedAgentId: string | null) =>
+      axios
+        .patch<{ ticket: TicketDetail }>(`/api/tickets/${id}`, {
+          assignedAgentId,
+        })
+        .then((res) => res.data.ticket),
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["ticket", id], updated);
+      queryClient.invalidateQueries({ queryKey: ["tickets"] });
+    },
+  });
+
+  const handleAssign = (value: string) => {
+    assignMutation.mutate(value === UNASSIGNED ? null : value);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -115,11 +160,40 @@ function TicketDetailPage() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
                 <span className="text-muted-foreground">Assigned to</span>
-                <p className="mt-1 font-medium">
-                  {data.assignedAgent
-                    ? `${data.assignedAgent.name} (${data.assignedAgent.email})`
-                    : "Unassigned"}
-                </p>
+                {isAdmin ? (
+                  <Select
+                    value={data.assignedAgent?.id ?? UNASSIGNED}
+                    onValueChange={handleAssign}
+                    disabled={assignMutation.isPending}
+                  >
+                    <SelectTrigger className="mt-1 w-full">
+                      <span className="truncate">
+                        {data.assignedAgent
+                          ? data.assignedAgent.name
+                          : "Unassigned"}
+                      </span>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
+                      {agents?.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name} ({agent.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <p className="mt-1 font-medium">
+                    {data.assignedAgent
+                      ? `${data.assignedAgent.name} (${data.assignedAgent.email})`
+                      : "Unassigned"}
+                  </p>
+                )}
+                {assignMutation.isError && (
+                  <p className="mt-1 text-xs text-destructive">
+                    Failed to assign agent.
+                  </p>
+                )}
               </div>
               <div>
                 <span className="text-muted-foreground">Last updated</span>

@@ -1,7 +1,9 @@
 import { Router } from "express";
+import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
+import { requireAdmin } from "../middleware/requireAdmin";
 import prisma from "../db";
-import { TicketStatus, TicketCategory } from "../generated/prisma/enums";
+import { TicketStatus, TicketCategory, Role } from "../generated/prisma/enums";
 
 const router = Router();
 
@@ -88,6 +90,58 @@ router.get("/:id", requireAuth, async (req, res) => {
   }
 
   res.json({ ticket });
+});
+
+export const assignTicketSchema = z.object({
+  assignedAgentId: z.string().min(1).nullable(),
+});
+
+router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const result = assignTicketSchema.safeParse(req.body);
+
+  if (!result.success) {
+    res.status(400).json({ error: "assignedAgentId must be a string or null" });
+    return;
+  }
+
+  const { assignedAgentId } = result.data;
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (assignedAgentId) {
+    const agent = await prisma.user.findFirst({
+      where: { id: assignedAgentId, deletedAt: null, role: Role.agent },
+    });
+
+    if (!agent) {
+      res.status(400).json({ error: "Agent not found" });
+      return;
+    }
+  }
+
+  const updated = await prisma.ticket.update({
+    where: { id },
+    data: { assignedAgentId },
+    include: {
+      assignedAgent: {
+        select: { id: true, name: true, email: true },
+      },
+    },
+  });
+
+  res.json({ ticket: updated });
 });
 
 export default router;

@@ -203,6 +203,7 @@ See `server/.env.example` for a template with all required variables.
   - `POST /api/webhooks/inbound-email` — create a ticket from an inbound email. Requires `x-webhook-secret` header (no session auth). Body: `{ from, fromName, subject, body }`. Normalizes subject whitespace and deduplicates against open tickets with same sender + subject. Returns `{ ticket: { id } }` with 201, or `{ ticket: { id }, existing: true }` with 200 for duplicates.
   - `GET /api/tickets` — list tickets (requires auth). Admin sees all, agent sees only assigned. Supports `?status=OPEN&category=GENERAL_QUESTION` query params for filtering, `?sortBy=createdAt&sortOrder=desc` for sorting, and `?page=1&pageSize=20` for pagination. Returns `{ tickets: [...], pagination: { page, pageSize, total, totalPages } }`. Default page size is 10 (max 100).
   - `GET /api/tickets/:id` — get ticket detail (requires auth). Includes assigned agent info. Agent can only view assigned tickets (403 otherwise).
+  - `PATCH /api/tickets/:id` — assign/unassign an agent to a ticket (requires auth + admin role). Body: `{ assignedAgentId: string | null }`. Validates agent exists and is not soft-deleted. Returns `{ ticket }` with updated assignment.
 
 ## Validation
 
