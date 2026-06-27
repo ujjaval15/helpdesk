@@ -15,6 +15,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 import {
   Table,
   TableBody,
@@ -98,8 +99,13 @@ const columns: ColumnDef<Ticket>[] = [
   {
     accessorKey: "subject",
     header: "Subject",
-    cell: ({ getValue }) => (
-      <span className="font-medium">{getValue<string>()}</span>
+    cell: ({ row, getValue }) => (
+      <Link
+        to={`/tickets/${row.original.id}`}
+        className="font-medium text-foreground hover:underline"
+      >
+        {getValue<string>()}
+      </Link>
     ),
   },
   {
@@ -150,7 +156,7 @@ interface TicketsTableProps {
   onPageChange: (page: number) => void;
 }
 
-function SortIcon({ column }: { column: string }) {
+function SortIcon(_props: { column: string }) {
   return (
     <ArrowUpDown className="ml-1 inline size-3.5 text-muted-foreground" />
   );
