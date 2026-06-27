@@ -5,6 +5,7 @@ import type { SortingState } from "@tanstack/react-table";
 import NavBar from "../components/NavBar";
 import TicketsTable, {
   type Ticket,
+  type Pagination,
   TicketStatus,
   TicketCategory,
   statusLabel,
@@ -25,13 +26,25 @@ function Tickets() {
   const [sorting, setSorting] = useState<SortingState>([
     { id: "createdAt", desc: true },
   ]);
+  const [page, setPage] = useState(1);
 
-  const {
-    data: tickets,
-    isPending,
-    isError,
-  } = useQuery({
-    queryKey: ["tickets", status, category, sorting],
+  const handleStatusChange = (value: string) => {
+    setStatus(value);
+    setPage(1);
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setCategory(value);
+    setPage(1);
+  };
+
+  const handleSortingChange: typeof setSorting = (updater) => {
+    setSorting(updater);
+    setPage(1);
+  };
+
+  const { data, isPending, isError } = useQuery({
+    queryKey: ["tickets", status, category, sorting, page],
     queryFn: () => {
       const params = new URLSearchParams();
       if (status !== ALL) params.set("status", status);
@@ -40,10 +53,12 @@ function Tickets() {
         params.set("sortBy", sorting[0].id);
         params.set("sortOrder", sorting[0].desc ? "desc" : "asc");
       }
-      const qs = params.toString();
+      params.set("page", String(page));
       return axios
-        .get<{ tickets: Ticket[] }>(`/api/tickets${qs ? `?${qs}` : ""}`)
-        .then((res) => res.data.tickets);
+        .get<{ tickets: Ticket[]; pagination: Pagination }>(
+          `/api/tickets?${params.toString()}`,
+        )
+        .then((res) => res.data);
     },
   });
 
@@ -59,7 +74,7 @@ function Tickets() {
         </p>
 
         <div className="mt-6 flex items-center gap-3">
-          <Select value={status} onValueChange={setStatus}>
+          <Select value={status} onValueChange={handleStatusChange}>
             <SelectTrigger className="w-44">
               <span className="truncate">
                 {status === ALL
@@ -77,7 +92,7 @@ function Tickets() {
             </SelectContent>
           </Select>
 
-          <Select value={category} onValueChange={setCategory}>
+          <Select value={category} onValueChange={handleCategoryChange}>
             <SelectTrigger className="w-48">
               <span className="truncate">
                 {category === ALL
@@ -103,10 +118,12 @@ function Tickets() {
         )}
 
         <TicketsTable
-          tickets={tickets}
+          tickets={data?.tickets}
           isPending={isPending}
           sorting={sorting}
-          onSortingChange={setSorting}
+          onSortingChange={handleSortingChange}
+          pagination={data?.pagination}
+          onPageChange={setPage}
         />
       </main>
     </div>

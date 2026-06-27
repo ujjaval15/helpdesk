@@ -6,7 +6,15 @@ import {
   type SortingState,
   type OnChangeFn,
 } from "@tanstack/react-table";
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+} from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,6 +24,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export const TicketStatus = {
@@ -55,6 +64,13 @@ const statusVariant: Record<
   RESOLVED: "default",
   CLOSED: "secondary",
 };
+
+export interface Pagination {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
 
 export interface Ticket {
   id: number;
@@ -130,6 +146,8 @@ interface TicketsTableProps {
   isPending: boolean;
   sorting: SortingState;
   onSortingChange: OnChangeFn<SortingState>;
+  pagination: Pagination | undefined;
+  onPageChange: (page: number) => void;
 }
 
 function SortIcon({ column }: { column: string }) {
@@ -143,6 +161,8 @@ function TicketsTable({
   isPending,
   sorting,
   onSortingChange,
+  pagination,
+  onPageChange,
 }: TicketsTableProps) {
   const table = useReactTable({
     data: tickets ?? [],
@@ -154,7 +174,8 @@ function TicketsTable({
   });
 
   return (
-    <Table className="mt-8">
+    <div className="mt-8 space-y-4">
+    <Table>
       <TableHeader>
         {table.getHeaderGroups().map((headerGroup) => (
           <TableRow key={headerGroup.id}>
@@ -222,6 +243,58 @@ function TicketsTable({
               ))}
       </TableBody>
     </Table>
+
+    {pagination && pagination.totalPages > 1 && (
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-muted-foreground">
+          Showing {(pagination.page - 1) * pagination.pageSize + 1}–
+          {Math.min(pagination.page * pagination.pageSize, pagination.total)} of{" "}
+          {pagination.total} tickets
+        </p>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(1)}
+            disabled={pagination.page <= 1}
+          >
+            <ChevronsLeft className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(pagination.page - 1)}
+            disabled={pagination.page <= 1}
+          >
+            <ChevronLeft className="size-4" />
+          </Button>
+          <span className="px-3 text-sm">
+            Page {pagination.page} of {pagination.totalPages}
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(pagination.page + 1)}
+            disabled={pagination.page >= pagination.totalPages}
+          >
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-8"
+            onClick={() => onPageChange(pagination.totalPages)}
+            disabled={pagination.page >= pagination.totalPages}
+          >
+            <ChevronsRight className="size-4" />
+          </Button>
+        </div>
+      </div>
+    )}
+    </div>
   );
 }
 

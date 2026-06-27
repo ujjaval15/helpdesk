@@ -201,7 +201,7 @@ See `server/.env.example` for a template with all required variables.
   - `PATCH /api/admin/users/:id` — update a user (requires auth + admin role). Body: `{ name, email, password? }`. Password is optional — omit or send empty string to keep unchanged. Returns `{ user }` with 200, or 400/404/409 for validation/not found/duplicate email.
   - `DELETE /api/admin/users/:id` — soft-delete a user (requires auth + admin role). Sets `deletedAt` timestamp. Admin users cannot be deleted (403). Returns `{ success: true }` with 200, or 403/404.
   - `POST /api/webhooks/inbound-email` — create a ticket from an inbound email. Requires `x-webhook-secret` header (no session auth). Body: `{ from, fromName, subject, body }`. Normalizes subject whitespace and deduplicates against open tickets with same sender + subject. Returns `{ ticket: { id } }` with 201, or `{ ticket: { id }, existing: true }` with 200 for duplicates.
-  - `GET /api/tickets` — list tickets (requires auth). Admin sees all, agent sees only assigned. Supports `?status=OPEN&category=GENERAL_QUESTION` query params for filtering. Returns `{ tickets: [...] }` sorted by createdAt desc.
+  - `GET /api/tickets` — list tickets (requires auth). Admin sees all, agent sees only assigned. Supports `?status=OPEN&category=GENERAL_QUESTION` query params for filtering, `?sortBy=createdAt&sortOrder=desc` for sorting, and `?page=1&pageSize=20` for pagination. Returns `{ tickets: [...], pagination: { page, pageSize, total, totalPages } }`. Default page size is 10 (max 100).
   - `GET /api/tickets/:id` — get ticket detail (requires auth). Includes assigned agent info. Agent can only view assigned tickets (403 otherwise).
 
 ## Validation
