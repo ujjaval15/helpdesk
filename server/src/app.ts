@@ -6,6 +6,8 @@ import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
 import usersRouter from "./routes/users";
+import inboundEmailRouter from "./routes/inboundEmail";
+import ticketsRouter from "./routes/tickets";
 
 const app = express();
 
@@ -44,6 +46,8 @@ app.get("/api/me", requireAuth, (req, res) => {
 });
 
 app.use("/api/admin/users", usersRouter);
+app.use("/api/webhooks/inbound-email", inboundEmailRouter);
+app.use("/api/tickets", ticketsRouter);
 
 const PORT = process.env.PORT || 3000;
 

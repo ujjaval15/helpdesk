@@ -43,6 +43,12 @@ function NavBar() {
           >
             Helpdesk
           </Link>
+          <Link
+            to="/tickets"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Tickets
+          </Link>
           {session?.user.role === "admin" && (
             <Link
               to="/users"
