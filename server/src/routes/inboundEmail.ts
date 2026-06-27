@@ -5,12 +5,16 @@ import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 
 const router = Router();
 
-const inboundEmailSchema = z.object({
+export const inboundEmailSchema = z.object({
   from: z.string().email("Invalid sender email"),
   fromName: z.string().trim().min(1, "Sender name is required"),
   subject: z.string().trim().min(1, "Subject is required"),
   body: z.string().trim().min(1, "Body is required"),
 });
+
+export function normalizeSubject(subject: string): string {
+  return subject.replace(/\s+/g, " ");
+}
 
 router.post("/", requireWebhookSecret, async (req, res) => {
   const result = inboundEmailSchema.safeParse(req.body);
@@ -26,7 +30,7 @@ router.post("/", requireWebhookSecret, async (req, res) => {
 
   const { from, fromName, subject, body } = result.data;
   const customerEmail = from.toLowerCase().trim();
-  const normalizedSubject = subject.replace(/\s+/g, " ");
+  const normalizedSubject = normalizeSubject(subject);
 
   const existingTicket = await prisma.ticket.findFirst({
     where: {

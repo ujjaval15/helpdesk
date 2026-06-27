@@ -1,13 +1,32 @@
 import { Router } from "express";
 import { requireAuth } from "../middleware/requireAuth";
 import prisma from "../db";
+import { TicketStatus, TicketCategory } from "../generated/prisma/enums";
 
 const router = Router();
 
+const validStatuses = new Set(Object.values(TicketStatus));
+const validCategories = new Set(Object.values(TicketCategory));
+const sortableFields = new Set(["id", "subject", "status", "category", "customerName", "createdAt"]);
+
 router.get("/", requireAuth, async (req, res) => {
   const isAdmin = req.user!.role === "admin";
+  const { status, category, sortBy, sortOrder } = req.query;
 
-  const where = isAdmin ? {} : { assignedAgentId: req.user!.id };
+  const where: Record<string, unknown> = isAdmin
+    ? {}
+    : { assignedAgentId: req.user!.id };
+
+  if (typeof status === "string" && validStatuses.has(status as TicketStatus)) {
+    where.status = status;
+  }
+
+  if (typeof category === "string" && validCategories.has(category as TicketCategory)) {
+    where.category = category;
+  }
+
+  const orderField = typeof sortBy === "string" && sortableFields.has(sortBy) ? sortBy : "createdAt";
+  const orderDir = sortOrder === "asc" ? "asc" : "desc";
 
   const tickets = await prisma.ticket.findMany({
     where,
@@ -22,7 +41,7 @@ router.get("/", requireAuth, async (req, res) => {
       createdAt: true,
       updatedAt: true,
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: { [orderField]: orderDir },
   });
 
   res.json({ tickets });

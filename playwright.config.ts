@@ -13,6 +13,7 @@ const serverEnv = {
   CLIENT_URL: `http://localhost:${TEST_CLIENT_PORT}`,
   ADMIN_EMAIL: "admin@test.com",
   ADMIN_PASSWORD: "testpassword123!",
+  WEBHOOK_SECRET: "test-webhook-secret-e2e",
 };
 
 export default defineConfig({

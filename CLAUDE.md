@@ -4,7 +4,7 @@
 
 A ticket management system that uses AI (Claude API) to automatically classify, respond to, and route support tickets. Two user roles: Admin and Agent. See [implementation-plan.md](implementation-plan.md) for the phased task breakdown.
 
-> **Status:** Authentication (Better Auth email/password + roles) and the login/protected-home shell are implemented. Ticket models, AI classification, and email are still planned — see [implementation-plan.md](implementation-plan.md).
+> **Status:** Authentication, user management, and ticket ingestion (inbound email webhook + ticket listing with filtering) are implemented. AI classification and email provider integration are still planned — see [implementation-plan.md](implementation-plan.md).
 
 ## Project Structure
 
@@ -15,13 +15,15 @@ helpdesk/
 │       ├── components/
 │       │   ├── NavBar.tsx          # avatar + sign-out dropdown (shown when authed)
 │       │   ├── ProtectedRoute.tsx  # redirects to /login when no session
+│       │   ├── TicketsTable.tsx    # ticket list table + Ticket type + enums
 │       │   └── ui/                 # shadcn components (Base UI primitives)
 │       ├── lib/
 │       │   ├── auth-client.ts      # Better Auth React client
 │       │   └── utils.ts            # cn() class merge helper
 │       ├── pages/
 │       │   ├── Home.tsx            # protected landing + server health check
-│       │   └── LoginPage.tsx       # email/password form (react-hook-form + zod)
+│       │   ├── LoginPage.tsx       # email/password form (react-hook-form + zod)
+│       │   └── Tickets.tsx         # ticket list with status/category filters
 │       ├── App.tsx                 # React Router routes
 │       └── main.tsx
 ├── server/          # Express 5 + TypeScript (Bun runtime)
@@ -30,9 +32,12 @@ helpdesk/
 │   │   ├── index.ts                # entrypoint (imports app)
 │   │   ├── db.ts                   # Prisma client (pg adapter)
 │   │   ├── lib/auth.ts             # Better Auth config
-│   │   ├── routes/users.ts         # /api/admin/users — list + create
-│   │   ├── middleware/requireAuth.ts   # session check → 401
-│   │   ├── middleware/requireAdmin.ts  # role check → 403 (use after requireAuth)
+│   │   ├── routes/users.ts         # /api/admin/users — CRUD
+│   │   ├── routes/tickets.ts       # /api/tickets — list + detail
+│   │   ├── routes/inboundEmail.ts  # /api/webhooks/inbound-email — email→ticket
+│   │   ├── middleware/requireAuth.ts       # session check → 401
+│   │   ├── middleware/requireAdmin.ts      # role check → 403 (use after requireAuth)
+│   │   ├── middleware/requireWebhookSecret.ts  # x-webhook-secret header check
 │   │   ├── types/express.d.ts      # augments Request with user/session
 │   │   └── generated/prisma/       # generated Prisma client (output dir)
 │   └── prisma/
@@ -103,15 +108,22 @@ cd server && bun run db:seed
 
 ## Testing
 
+### Testing Strategy
+- **Prefer component/unit tests over E2E tests.** Validation logic, zod schemas, pure functions, UI rendering, and user interactions should all be covered by Vitest unit tests.
+- **Use E2E tests only when the test genuinely requires a running server and database** — e.g., full request lifecycle, auth middleware, database-dependent logic like deduplication. Keep E2E tests minimal and focused.
+- **Server-side logic unit tests** (zod schemas, helper functions) can be placed in `client/src/test/` and import directly from `server/src/` — Vitest can resolve cross-directory imports within the monorepo.
+- Export zod schemas and pure helper functions from route modules so they can be unit tested without spinning up the server.
+
 ### Component / Unit Tests
 - **Stack:** Vitest + React Testing Library + jsdom. Config in `client/vite.config.ts` (`test` block), setup file at `client/src/test/setup.ts`.
-- **Test files:** Place next to the component as `<Component>.test.tsx` (e.g., `Users.test.tsx` alongside `Users.tsx`).
+- **Test files:** Component tests go next to the component as `<Component>.test.tsx`. Server logic unit tests go in `client/src/test/` (e.g., `inbound-email.test.ts`).
 - **Rendering:** Use `renderWithProviders()` from `client/src/test/render.tsx` — it wraps components in `QueryClientProvider` (retry disabled) and `MemoryRouter`. Use this for all component tests instead of bare `render()`.
 - **Mocking:** Mock `axios` with `vi.mock("axios")` and mock `../lib/auth-client` to provide a session. Do not make real API calls in unit tests.
-- **What to cover:** Loading states (skeletons), error states, empty states, rendered data, correct API endpoint calls, and user interactions.
+- **What to cover:** Loading states (skeletons), error states, empty states, rendered data, correct API endpoint calls, user interactions, validation schemas, and pure helper functions.
 
 ### E2E Tests
 > Always use the `e2e-test-writer` agent (`.claude/agents/e2e-test-writer.md`) for creating or modifying Playwright tests. It has the full testing infrastructure details (test DB, global setup, credentials, config) and Playwright best practices.
+> Only write E2E tests for flows that require a real server and database. Validation, rendering, and pure logic belong in unit tests.
 
 ## Authentication
 
@@ -157,10 +169,11 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 
 - Prisma schema at `server/prisma/schema.prisma`; generated client output to `server/src/generated/prisma`.
 - `DATABASE_URL` configured in `server/.env`; connection uses the `pg` adapter (`server/src/db.ts`).
-- **Current models:** `User`, `Session`, `Account`, `Verification` (the Better Auth schema).
-- **Current enum:** `Role` — values `admin`, `agent` (lowercase).
+- **Current models:** `User`, `Session`, `Account`, `Verification` (Better Auth schema), `Ticket`.
+- **Enums:** `Role` (admin, agent), `TicketStatus` (OPEN, RESOLVED, CLOSED), `TicketCategory` (GENERAL_QUESTION, TECHNICAL_QUESTION, REFUND_REQUEST).
+- **Ticket model:** `id` (Int, autoincrement), `subject`, `body`, `status` (default OPEN), `category` (optional, nullable), `customerEmail`, `customerName`, `assignedAgentId` (optional FK to User, onDelete SetNull), timestamps. Indexed on status, category, assignedAgentId, customerEmail.
+- **Client-side enums:** `TicketStatus`, `TicketCategory`, `statusLabel`, and `categoryLabel` are exported from `client/src/components/TicketsTable.tsx` — use these instead of hardcoding values.
 - **Soft deletion:** `User` has an optional `deletedAt` field. Queries filter by `deletedAt: null` to exclude soft-deleted users. Admin users cannot be soft-deleted.
-- **Planned (not yet in schema):** `Ticket` model with `TicketStatus` (OPEN, RESOLVED, CLOSED) and `TicketCategory` (GENERAL_QUESTION, TECHNICAL_QUESTION, REFUND_REQUEST) — see [implementation-plan.md](implementation-plan.md).
 
 ## Environment Variables (`server/.env`)
 
@@ -170,6 +183,7 @@ Auth is handled by **Better Auth** with email/password and database-backed sessi
 - `BETTER_AUTH_URL` — Better Auth base URL (e.g. `http://localhost:3000`)
 - `CLIENT_URL` — allowed CORS origin / trusted origin (e.g. `http://localhost:5173`)
 - `ADMIN_EMAIL` / `ADMIN_PASSWORD` — credentials used by the seed script (password must be 12+ characters)
+- `WEBHOOK_SECRET` — shared secret for the inbound email webhook (`x-webhook-secret` header)
 
 See `server/.env.example` for a template with all required variables.
 
@@ -186,6 +200,9 @@ See `server/.env.example` for a template with all required variables.
   - `POST /api/admin/users` — create a new agent user (requires auth + admin role). Body: `{ name, email, password }`. Returns `{ user }` with 201, or `{ errors }` with 400 for validation, or `{ error }` with 409 for duplicate email.
   - `PATCH /api/admin/users/:id` — update a user (requires auth + admin role). Body: `{ name, email, password? }`. Password is optional — omit or send empty string to keep unchanged. Returns `{ user }` with 200, or 400/404/409 for validation/not found/duplicate email.
   - `DELETE /api/admin/users/:id` — soft-delete a user (requires auth + admin role). Sets `deletedAt` timestamp. Admin users cannot be deleted (403). Returns `{ success: true }` with 200, or 403/404.
+  - `POST /api/webhooks/inbound-email` — create a ticket from an inbound email. Requires `x-webhook-secret` header (no session auth). Body: `{ from, fromName, subject, body }`. Normalizes subject whitespace and deduplicates against open tickets with same sender + subject. Returns `{ ticket: { id } }` with 201, or `{ ticket: { id }, existing: true }` with 200 for duplicates.
+  - `GET /api/tickets` — list tickets (requires auth). Admin sees all, agent sees only assigned. Supports `?status=OPEN&category=GENERAL_QUESTION` query params for filtering. Returns `{ tickets: [...] }` sorted by createdAt desc.
+  - `GET /api/tickets/:id` — get ticket detail (requires auth). Includes assigned agent info. Agent can only view assigned tickets (403 otherwise).
 
 ## Validation
 
