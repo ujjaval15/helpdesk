@@ -27,63 +27,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-export const TicketStatus = {
-  OPEN: "OPEN",
-  RESOLVED: "RESOLVED",
-  CLOSED: "CLOSED",
-} as const;
-
-export type TicketStatus = (typeof TicketStatus)[keyof typeof TicketStatus];
-
-export const TicketCategory = {
-  GENERAL_QUESTION: "GENERAL_QUESTION",
-  TECHNICAL_QUESTION: "TECHNICAL_QUESTION",
-  REFUND_REQUEST: "REFUND_REQUEST",
-} as const;
-
-export type TicketCategory =
-  (typeof TicketCategory)[keyof typeof TicketCategory];
-
-export const statusLabel: Record<TicketStatus, string> = {
-  OPEN: "Open",
-  RESOLVED: "Resolved",
-  CLOSED: "Closed",
-};
-
-export const categoryLabel: Record<TicketCategory, string> = {
-  GENERAL_QUESTION: "General Question",
-  TECHNICAL_QUESTION: "Technical Question",
-  REFUND_REQUEST: "Refund Request",
-};
-
-const statusVariant: Record<
-  TicketStatus,
-  "destructive" | "default" | "secondary"
-> = {
-  OPEN: "destructive",
-  RESOLVED: "default",
-  CLOSED: "secondary",
-};
-
-export interface Pagination {
-  page: number;
-  pageSize: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface Ticket {
-  id: number;
-  subject: string;
-  status: TicketStatus;
-  category: TicketCategory | null;
-  customerEmail: string;
-  customerName: string;
-  assignedAgentId: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
+import {
+  type TicketStatus,
+  type TicketCategory,
+  type Ticket,
+  type Pagination,
+  categoryLabel,
+  statusVariant,
+} from "@/lib/ticket-constants";
 
 const columns: ColumnDef<Ticket>[] = [
   {

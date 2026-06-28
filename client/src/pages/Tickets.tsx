@@ -3,14 +3,15 @@ import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
 import NavBar from "../components/NavBar";
-import TicketsTable, {
+import TicketsTable from "@/components/TicketsTable";
+import {
   type Ticket,
   type Pagination,
   TicketStatus,
   TicketCategory,
   statusLabel,
   categoryLabel,
-} from "@/components/TicketsTable";
+} from "@/lib/ticket-constants";
 import {
   Select,
   SelectContent,

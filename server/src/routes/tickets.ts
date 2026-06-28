@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
 import prisma from "../db";
-import { TicketStatus, TicketCategory, Role } from "../generated/prisma/enums";
+import { TicketStatus, TicketCategory, Role, SenderType } from "../generated/prisma/enums";
 
 const router = Router();
 
@@ -166,4 +166,86 @@ router.patch("/:id", requireAuth, async (req, res) => {
   res.json({ ticket: updated });
 });
 
+const createReplySchema = z.object({
+  body: z.string().min(1).max(5000),
+});
+
+router.get("/:id/replies", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const isAdmin = req.user!.role === "admin";
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const replies = await prisma.reply.findMany({
+    where: { ticketId: id },
+    orderBy: { createdAt: "asc" },
+  });
+
+  res.json({ replies });
+});
+
+router.post("/:id/replies", requireAuth, async (req, res) => {
+  const id = Number(req.params.id);
+
+  if (Number.isNaN(id)) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+
+  const result = createReplySchema.safeParse(req.body);
+
+  if (!result.success) {
+    const errors: Record<string, string> = {};
+    for (const issue of result.error.issues) {
+      errors[issue.path[0] as string] = issue.message;
+    }
+    res.status(400).json({ errors });
+    return;
+  }
+
+  const isAdmin = req.user!.role === "admin";
+
+  const ticket = await prisma.ticket.findUnique({ where: { id } });
+
+  if (!ticket) {
+    res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+
+  const reply = await prisma.reply.create({
+    data: {
+      body: result.data.body,
+      senderType: SenderType.AGENT,
+      senderName: req.user!.name,
+      senderEmail: req.user!.email,
+      ticketId: id,
+      userId: req.user!.id,
+    },
+  });
+
+  res.status(201).json({ reply });
+});
+
+export { createReplySchema };
 export default router;

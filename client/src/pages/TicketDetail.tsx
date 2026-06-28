@@ -5,55 +5,21 @@ import { ArrowLeft } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { useSession } from "@/lib/auth-client";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import TicketMessage from "@/components/ticket-detail/TicketMessage";
+import TicketSidebar from "@/components/ticket-detail/TicketSidebar";
+import ReplyThread from "@/components/ticket-detail/ReplyThread";
+import ReplyForm from "@/components/ticket-detail/ReplyForm";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
-import {
-  TicketStatus,
-  TicketCategory,
-  type TicketStatus as TicketStatusType,
-  type TicketCategory as TicketCategoryType,
+  type Agent,
+  type TicketDetail,
+  type Reply,
   statusLabel,
   categoryLabel,
-} from "@/components/TicketsTable";
-
-interface Agent {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
-
-interface TicketDetail {
-  id: number;
-  subject: string;
-  body: string;
-  status: TicketStatusType;
-  category: TicketCategoryType | null;
-  customerEmail: string;
-  customerName: string;
-  assignedAgent: { id: string; name: string; email: string } | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-const NONE = "NONE";
-
-const statusVariant: Record<
-  TicketStatusType,
-  "destructive" | "default" | "secondary"
-> = {
-  OPEN: "destructive",
-  RESOLVED: "default",
-  CLOSED: "secondary",
-};
-
-const UNASSIGNED = "UNASSIGNED";
+  statusVariant,
+  NONE,
+  UNASSIGNED,
+} from "@/lib/ticket-constants";
 
 function TicketDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -89,8 +55,19 @@ function TicketDetailPage() {
     },
   });
 
+  const { data: replies, isPending: repliesPending } = useQuery({
+    queryKey: ["ticket", id, "replies"],
+    queryFn: () =>
+      axios
+        .get<{ replies: Reply[] }>(`/api/tickets/${id}/replies`)
+        .then((res) => res.data.replies),
+    enabled: !!data,
+  });
+
   const handleAssign = (value: string) => {
-    updateMutation.mutate({ assignedAgentId: value === UNASSIGNED ? null : value });
+    updateMutation.mutate({
+      assignedAgentId: value === UNASSIGNED ? null : value,
+    });
   };
 
   const handleStatusChange = (value: string) => {
@@ -150,116 +127,23 @@ function TicketDetailPage() {
 
             <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
               <div className="space-y-6 lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">
-                      {data.customerName}
-                      <span className="ml-2 text-sm font-normal text-muted-foreground">
-                        &lt;{data.customerEmail}&gt;
-                      </span>
-                    </CardTitle>
-                    <p className="text-xs text-muted-foreground">
-                      {new Date(data.createdAt).toLocaleString()}
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-                      {data.body}
-                    </p>
-                  </CardContent>
-                </Card>
+                <TicketMessage ticket={data} />
+
+                <ReplyThread replies={replies} isPending={repliesPending} />
+
+                <ReplyForm ticketId={id!} />
               </div>
 
-              <div className="space-y-5 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Status</span>
-                  <Select
-                    value={data.status}
-                    onValueChange={handleStatusChange}
-                    disabled={updateMutation.isPending}
-                  >
-                    <SelectTrigger className="mt-1 w-full">
-                      <span className="truncate">
-                        {statusLabel[data.status]}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.values(TicketStatus).map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {statusLabel[s]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Category</span>
-                  <Select
-                    value={data.category ?? NONE}
-                    onValueChange={handleCategoryChange}
-                    disabled={updateMutation.isPending}
-                  >
-                    <SelectTrigger className="mt-1 w-full">
-                      <span className="truncate">
-                        {data.category
-                          ? categoryLabel[data.category]
-                          : "None"}
-                      </span>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>None</SelectItem>
-                      {Object.values(TicketCategory).map((c) => (
-                        <SelectItem key={c} value={c}>
-                          {categoryLabel[c]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Assigned To</span>
-                  {isAdmin ? (
-                    <Select
-                      value={data.assignedAgent?.id ?? UNASSIGNED}
-                      onValueChange={handleAssign}
-                      disabled={updateMutation.isPending}
-                    >
-                      <SelectTrigger className="mt-1 w-full">
-                        <span className="truncate">
-                          {data.assignedAgent
-                            ? data.assignedAgent.name
-                            : "Unassigned"}
-                        </span>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={UNASSIGNED}>Unassigned</SelectItem>
-                        {agents?.map((agent) => (
-                          <SelectItem key={agent.id} value={agent.id}>
-                            {agent.name} ({agent.email})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <p className="mt-1 font-medium">
-                      {data.assignedAgent
-                        ? `${data.assignedAgent.name} (${data.assignedAgent.email})`
-                        : "Unassigned"}
-                    </p>
-                  )}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Last Updated</span>
-                  <p className="mt-1 font-medium">
-                    {new Date(data.updatedAt).toLocaleString()}
-                  </p>
-                </div>
-                {updateMutation.isError && (
-                  <p className="text-sm text-destructive" role="alert">
-                    Failed to update ticket.
-                  </p>
-                )}
-              </div>
+              <TicketSidebar
+                ticket={data}
+                isAdmin={isAdmin}
+                agents={agents}
+                onStatusChange={handleStatusChange}
+                onCategoryChange={handleCategoryChange}
+                onAssign={handleAssign}
+                isPending={updateMutation.isPending}
+                isError={updateMutation.isError}
+              />
             </div>
           </div>
         )}
