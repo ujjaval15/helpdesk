@@ -4,6 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorMessage } from "@/components/ui/error-message";
 import { Textarea } from "@/components/ui/textarea";
 import { replySchema, type ReplyFormData, type Reply } from "@/lib/ticket-constants";
 
@@ -48,9 +49,7 @@ function ReplyForm({ ticketId }: ReplyFormProps) {
         aria-invalid={!!errors.body}
         rows={4}
       />
-      {errors.body && (
-        <p className="text-sm text-destructive">{errors.body.message}</p>
-      )}
+      <ErrorMessage error={errors.body} />
       {replyMutation.isError && (
         <p className="text-sm text-destructive" role="alert">
           Failed to send reply.

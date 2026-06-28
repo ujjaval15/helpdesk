@@ -208,8 +208,8 @@ See `server/.env.example` for a template with all required variables.
 ## Validation
 
 - Use **zod** for request validation on both client and server.
-- **Client:** react-hook-form with `zodResolver` for form validation.
-- **Server:** Define a zod schema per endpoint, validate with `schema.safeParse(req.body)`, and return field-level errors as `{ errors: { field: "message" } }` with status 400.
+- **Client:** react-hook-form with `zodResolver` for form validation. Use `<ErrorMessage error={errors.fieldName} />` from `@/components/ui/error-message` to display field-level validation errors — do not write inline `<p>` tags for form errors.
+- **Server:** Define a zod schema per endpoint, validate with `validateBody(schema, req.body, res)` from `server/src/lib/route-utils.ts`, which returns parsed data or sends a 400 with field-level errors. Use `parseIntId(raw, res)` for numeric param parsing and `findTicketWithAccess(id, userId, isAdmin, res)` for ticket lookup + authorization.
 
 ## Data Fetching
 

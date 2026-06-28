@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ErrorMessage } from "@/components/ui/error-message";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email"),
@@ -75,11 +76,7 @@ function LoginPage() {
                 aria-invalid={!!errors.email}
                 {...register("email")}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">
-                  {errors.email.message}
-                </p>
-              )}
+              <ErrorMessage error={errors.email} />
             </div>
 
             <div className="space-y-2">
@@ -91,11 +88,7 @@ function LoginPage() {
                 aria-invalid={!!errors.password}
                 {...register("password")}
               />
-              {errors.password && (
-                <p className="text-sm text-destructive">
-                  {errors.password.message}
-                </p>
-              )}
+              <ErrorMessage error={errors.password} />
             </div>
 
             {formError && (

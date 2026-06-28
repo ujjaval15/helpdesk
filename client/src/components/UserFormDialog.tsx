@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ErrorMessage } from "@/components/ui/error-message";
 import type { User } from "@/components/UsersTable";
 
 const userFormSchema = z.object({
@@ -115,9 +116,7 @@ function UserFormDialog({ user, open, onOpenChange }: UserFormDialogProps) {
               aria-invalid={!!errors.name}
               {...register("name")}
             />
-            {errors.name && (
-              <p className="text-sm text-destructive">{errors.name.message}</p>
-            )}
+            <ErrorMessage error={errors.name} />
           </div>
 
           <div className="space-y-2">
@@ -129,11 +128,7 @@ function UserFormDialog({ user, open, onOpenChange }: UserFormDialogProps) {
               aria-invalid={!!errors.email}
               {...register("email")}
             />
-            {errors.email && (
-              <p className="text-sm text-destructive">
-                {errors.email.message}
-              </p>
-            )}
+            <ErrorMessage error={errors.email} />
           </div>
 
           <div className="space-y-2">
@@ -146,11 +141,7 @@ function UserFormDialog({ user, open, onOpenChange }: UserFormDialogProps) {
               aria-invalid={!!errors.password}
               {...register("password")}
             />
-            {errors.password && (
-              <p className="text-sm text-destructive">
-                {errors.password.message}
-              </p>
-            )}
+            <ErrorMessage error={errors.password} />
           </div>
 
           {serverError && (
