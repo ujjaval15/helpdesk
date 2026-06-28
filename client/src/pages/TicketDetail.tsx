@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import NavBar from "../components/NavBar";
 import { useSession } from "@/lib/auth-client";
+import { AlertError } from "@/components/ui/alert-error";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import TicketMessage from "@/components/ticket-detail/TicketMessage";
@@ -99,9 +100,7 @@ function TicketDetailPage() {
         )}
 
         {isError && (
-          <p className="mt-6 text-sm text-destructive" role="alert">
-            Failed to load ticket. It may not exist or you don't have access.
-          </p>
+          <AlertError message="Failed to load ticket. It may not exist or you don't have access." className="mt-6" />
         )}
 
         {data && (

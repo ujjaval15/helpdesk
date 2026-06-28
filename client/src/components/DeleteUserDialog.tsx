@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { AlertError } from "@/components/ui/alert-error";
 import { Button } from "@/components/ui/button";
 import type { User } from "@/components/UsersTable";
 
@@ -43,9 +44,7 @@ function DeleteUserDialog({ user, open, onOpenChange }: DeleteUserDialogProps) {
         </DialogDescription>
 
         {serverError && (
-          <p className="mt-4 text-sm font-medium text-destructive">
-            {serverError}
-          </p>
+          <AlertError message={serverError} className="mt-4 font-medium" />
         )}
 
         <div className="mt-6 flex justify-end gap-3">

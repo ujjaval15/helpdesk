@@ -3,6 +3,7 @@ import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import type { SortingState } from "@tanstack/react-table";
 import NavBar from "../components/NavBar";
+import { AlertError } from "@/components/ui/alert-error";
 import TicketsTable from "@/components/TicketsTable";
 import {
   type Ticket,
@@ -113,9 +114,7 @@ function Tickets() {
         </div>
 
         {isError && (
-          <p className="mt-8 text-sm text-destructive" role="alert">
-            Failed to load tickets. Please try again later.
-          </p>
+          <AlertError message="Failed to load tickets. Please try again later." className="mt-8" />
         )}
 
         <TicketsTable

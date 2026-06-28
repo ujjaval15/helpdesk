@@ -3,6 +3,7 @@ import axios from "axios";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import NavBar from "../components/NavBar";
+import { AlertError } from "@/components/ui/alert-error";
 import { Button } from "@/components/ui/button";
 import UserFormDialog from "@/components/UserFormDialog";
 import DeleteUserDialog from "@/components/DeleteUserDialog";
@@ -49,9 +50,7 @@ function Users() {
         />
 
         {isError && (
-          <p className="mt-8 text-sm text-destructive" role="alert">
-            Failed to load users. Please try again later.
-          </p>
+          <AlertError message="Failed to load users. Please try again later." className="mt-8" />
         )}
 
         <UsersTable

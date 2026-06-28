@@ -1,3 +1,4 @@
+import { AlertError } from "@/components/ui/alert-error";
 import {
   Select,
   SelectContent,
@@ -118,9 +119,7 @@ function TicketSidebar({
         </p>
       </div>
       {isError && (
-        <p className="text-sm text-destructive" role="alert">
-          Failed to update ticket.
-        </p>
+        <AlertError message="Failed to update ticket." />
       )}
     </div>
   );

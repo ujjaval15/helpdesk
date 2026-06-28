@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertError } from "@/components/ui/alert-error";
 import { ErrorMessage } from "@/components/ui/error-message";
 
 const loginSchema = z.object({
@@ -92,7 +93,7 @@ function LoginPage() {
             </div>
 
             {formError && (
-              <p className="text-sm font-medium text-destructive">{formError}</p>
+              <AlertError message={formError} className="font-medium" />
             )}
 
             <Button

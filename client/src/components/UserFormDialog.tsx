@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { AlertError } from "@/components/ui/alert-error";
 import { ErrorMessage } from "@/components/ui/error-message";
 import type { User } from "@/components/UsersTable";
 
@@ -145,9 +146,7 @@ function UserFormDialog({ user, open, onOpenChange }: UserFormDialogProps) {
           </div>
 
           {serverError && (
-            <p className="text-sm font-medium text-destructive">
-              {serverError}
-            </p>
+            <AlertError message={serverError} className="font-medium" />
           )}
 
           <div className="flex justify-end gap-3 pt-2">

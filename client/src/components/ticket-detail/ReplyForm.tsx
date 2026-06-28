@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Send } from "lucide-react";
+import { AlertError } from "@/components/ui/alert-error";
 import { Button } from "@/components/ui/button";
 import { ErrorMessage } from "@/components/ui/error-message";
 import { Textarea } from "@/components/ui/textarea";
@@ -51,9 +52,7 @@ function ReplyForm({ ticketId }: ReplyFormProps) {
       />
       <ErrorMessage error={errors.body} />
       {replyMutation.isError && (
-        <p className="text-sm text-destructive" role="alert">
-          Failed to send reply.
-        </p>
+        <AlertError message="Failed to send reply." />
       )}
       <Button type="submit" disabled={replyMutation.isPending} size="sm">
         <Send className="mr-2 size-4" />
