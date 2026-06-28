@@ -1,9 +1,9 @@
 import { Router } from "express";
 import { z } from "zod";
 import { requireAuth } from "../middleware/requireAuth";
-import { requireAdmin } from "../middleware/requireAdmin";
 import prisma from "../db";
 import { TicketStatus, TicketCategory, Role, SenderType } from "../generated/prisma/enums";
+import { validateBody, parseIntId, findTicketWithAccess } from "../lib/route-utils";
 
 const router = Router();
 
@@ -61,12 +61,8 @@ router.get("/", requireAuth, async (req, res) => {
 });
 
 router.get("/:id", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
-
-  if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid ticket ID" });
-    return;
-  }
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
 
   const isAdmin = req.user!.role === "admin";
 
@@ -99,25 +95,13 @@ export const updateTicketSchema = z.object({
 });
 
 router.patch("/:id", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
 
-  if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid ticket ID" });
-    return;
-  }
+  const data = validateBody(updateTicketSchema, req.body, res);
+  if (!data) return;
 
-  const result = updateTicketSchema.safeParse(req.body);
-
-  if (!result.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      errors[issue.path[0] as string] = issue.message;
-    }
-    res.status(400).json({ errors });
-    return;
-  }
-
-  const { assignedAgentId, status, category } = result.data;
+  const { assignedAgentId, status, category } = data;
   const isAdmin = req.user!.role === "admin";
 
   if (assignedAgentId !== undefined && !isAdmin) {
@@ -125,17 +109,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
     return;
   }
 
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  const ticket = await findTicketWithAccess(id, req.user!.id, isAdmin, res);
+  if (!ticket) return;
 
   if (assignedAgentId) {
     const agent = await prisma.user.findFirst({
@@ -148,14 +123,14 @@ router.patch("/:id", requireAuth, async (req, res) => {
     }
   }
 
-  const data: Record<string, unknown> = {};
-  if (assignedAgentId !== undefined) data.assignedAgentId = assignedAgentId;
-  if (status !== undefined) data.status = status;
-  if (category !== undefined) data.category = category;
+  const updateData: Record<string, unknown> = {};
+  if (assignedAgentId !== undefined) updateData.assignedAgentId = assignedAgentId;
+  if (status !== undefined) updateData.status = status;
+  if (category !== undefined) updateData.category = category;
 
   const updated = await prisma.ticket.update({
     where: { id },
-    data,
+    data: updateData,
     include: {
       assignedAgent: {
         select: { id: true, name: true, email: true },
@@ -171,26 +146,11 @@ const createReplySchema = z.object({
 });
 
 router.get("/:id/replies", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
 
-  if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid ticket ID" });
-    return;
-  }
-
-  const isAdmin = req.user!.role === "admin";
-
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  const ticket = await findTicketWithAccess(id, req.user!.id, req.user!.role === "admin", res);
+  if (!ticket) return;
 
   const replies = await prisma.reply.findMany({
     where: { ticketId: id },
@@ -201,41 +161,18 @@ router.get("/:id/replies", requireAuth, async (req, res) => {
 });
 
 router.post("/:id/replies", requireAuth, async (req, res) => {
-  const id = Number(req.params.id);
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
 
-  if (Number.isNaN(id)) {
-    res.status(400).json({ error: "Invalid ticket ID" });
-    return;
-  }
+  const data = validateBody(createReplySchema, req.body, res);
+  if (!data) return;
 
-  const result = createReplySchema.safeParse(req.body);
-
-  if (!result.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      errors[issue.path[0] as string] = issue.message;
-    }
-    res.status(400).json({ errors });
-    return;
-  }
-
-  const isAdmin = req.user!.role === "admin";
-
-  const ticket = await prisma.ticket.findUnique({ where: { id } });
-
-  if (!ticket) {
-    res.status(404).json({ error: "Ticket not found" });
-    return;
-  }
-
-  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
-    res.status(403).json({ error: "Forbidden" });
-    return;
-  }
+  const ticket = await findTicketWithAccess(id, req.user!.id, req.user!.role === "admin", res);
+  if (!ticket) return;
 
   const reply = await prisma.reply.create({
     data: {
-      body: result.data.body,
+      body: data.body,
       senderType: SenderType.AGENT,
       senderName: req.user!.name,
       senderEmail: req.user!.email,

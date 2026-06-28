@@ -5,6 +5,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import { requireAdmin } from "../middleware/requireAdmin";
 import prisma from "../db";
 import { Role } from "../generated/prisma/enums";
+import { validateBody } from "../lib/route-utils";
 
 const router = Router();
 
@@ -31,18 +32,10 @@ const createUserSchema = z.object({
 });
 
 router.post("/", requireAuth, requireAdmin, async (req, res) => {
-  const result = createUserSchema.safeParse(req.body);
+  const data = validateBody(createUserSchema, req.body, res);
+  if (!data) return;
 
-  if (!result.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      errors[issue.path[0] as string] = issue.message;
-    }
-    res.status(400).json({ errors });
-    return;
-  }
-
-  const { name, email, password } = result.data;
+  const { name, email, password } = data;
   const normalizedEmail = email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
@@ -85,18 +78,10 @@ const updateUserSchema = z.object({
 
 router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
   const id = req.params.id as string;
-  const result = updateUserSchema.safeParse(req.body);
+  const data = validateBody(updateUserSchema, req.body, res);
+  if (!data) return;
 
-  if (!result.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      errors[issue.path[0] as string] = issue.message;
-    }
-    res.status(400).json({ errors });
-    return;
-  }
-
-  const { name, email, password } = result.data;
+  const { name, email, password } = data;
   const normalizedEmail = email.toLowerCase().trim();
 
   const existing = await prisma.user.findUnique({ where: { id: id } });

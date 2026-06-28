@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import prisma from "../db";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
+import { validateBody } from "../lib/route-utils";
 
 const router = Router();
 
@@ -17,18 +18,10 @@ export function normalizeSubject(subject: string): string {
 }
 
 router.post("/", requireWebhookSecret, async (req, res) => {
-  const result = inboundEmailSchema.safeParse(req.body);
+  const data = validateBody(inboundEmailSchema, req.body, res);
+  if (!data) return;
 
-  if (!result.success) {
-    const errors: Record<string, string> = {};
-    for (const issue of result.error.issues) {
-      errors[issue.path[0] as string] = issue.message;
-    }
-    res.status(400).json({ errors });
-    return;
-  }
-
-  const { from, fromName, subject, body } = result.data;
+  const { from, fromName, subject, body } = data;
   const customerEmail = from.toLowerCase().trim();
   const normalizedSubject = normalizeSubject(subject);
 
