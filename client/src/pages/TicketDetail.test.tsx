@@ -48,6 +48,15 @@ const mockAgents = [
   { id: "agent-2", name: "Charlie Agent", email: "charlie@example.com", role: "agent" },
 ];
 
+function setupGetMock(ticket = mockTicket, agents = mockAgents) {
+  mockedAxios.get.mockImplementation((url: string) => {
+    if (url.includes("/api/tickets/")) {
+      return Promise.resolve({ data: { ticket } });
+    }
+    return Promise.resolve({ data: { users: agents } });
+  });
+}
+
 function renderTicketDetail(ticketId = "1") {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -87,13 +96,7 @@ describe("TicketDetail page", () => {
   });
 
   it("renders ticket details after loading", async () => {
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
-    });
-
+    setupGetMock();
     renderTicketDetail();
 
     await screen.findByText("Cannot log in");
@@ -104,101 +107,82 @@ describe("TicketDetail page", () => {
   });
 
   it("shows status and category badges", async () => {
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
-    });
-
+    setupGetMock();
     renderTicketDetail();
 
     await screen.findByText("Cannot log in");
-    expect(screen.getByText("Open")).toBeInTheDocument();
-    expect(screen.getByText("Technical")).toBeInTheDocument();
+    const statusBadge = document.querySelector('[data-slot="badge"][data-variant="destructive"]');
+    expect(statusBadge).toHaveTextContent("Open");
+    const categoryBadge = document.querySelector('[data-slot="badge"][data-variant="outline"]');
+    expect(categoryBadge).toHaveTextContent("Technical Question");
+  });
+
+  it("shows 'Back to tickets' link", async () => {
+    setupGetMock();
+    renderTicketDetail();
+
+    const link = screen.getByRole("link", { name: /back to tickets/i });
+    expect(link).toHaveAttribute("href", "/tickets");
+  });
+
+  it("fetches the correct ticket by ID from the URL", async () => {
+    setupGetMock({ ...mockTicket, id: 42 });
+    renderTicketDetail("42");
+
+    await screen.findByText("#42");
+    expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets/42");
+  });
+});
+
+describe("TicketDetail — agent assignment", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSession = mockAdminSession;
   });
 
   it("shows agent select dropdown for admin users", async () => {
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
-    });
-
+    setupGetMock();
     renderTicketDetail();
 
     await screen.findByText("Cannot log in");
     expect(screen.getByText("Unassigned")).toBeInTheDocument();
-    expect(screen.getByRole("combobox")).toBeInTheDocument();
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes.length).toBe(3);
   });
 
-  it("shows static text instead of dropdown for agent users", async () => {
+  it("shows static text for agent assignment when user is an agent", async () => {
     currentSession = mockAgentSession;
-
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({
-          data: {
-            ticket: {
-              ...mockTicket,
-              assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
-            },
-          },
-        });
-      }
-      return Promise.resolve({ data: { users: [] } });
+    setupGetMock({
+      ...mockTicket,
+      assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
     });
 
     renderTicketDetail();
 
     await screen.findByText("Cannot log in");
     expect(screen.getByText("Bob Agent (bob@example.com)")).toBeInTheDocument();
-    expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
-  });
-
-  it("shows assigned agent name in the dropdown when ticket is assigned", async () => {
-    const assignedTicket = {
-      ...mockTicket,
-      assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
-    };
-
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: assignedTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
-    });
-
-    renderTicketDetail();
-
-    await screen.findByText("Cannot log in");
-    const combobox = screen.getByRole("combobox");
-    expect(combobox).toHaveTextContent("Bob Agent");
+    const comboboxes = screen.getAllByRole("combobox");
+    expect(comboboxes.length).toBe(2);
   });
 
   it("calls PATCH to assign agent when selection changes", async () => {
     const user = userEvent.setup();
-    const updatedTicket = {
-      ...mockTicket,
-      assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
-    };
-
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
+    setupGetMock();
+    mockedAxios.patch.mockResolvedValue({
+      data: {
+        ticket: {
+          ...mockTicket,
+          assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
+        },
+      },
     });
 
-    mockedAxios.patch.mockResolvedValue({ data: { ticket: updatedTicket } });
-
     renderTicketDetail();
-
     await screen.findByText("Cannot log in");
 
-    const combobox = screen.getByRole("combobox");
-    await user.click(combobox);
+    const comboboxes = screen.getAllByRole("combobox");
+    const assignDropdown = comboboxes.find((el) => el.textContent?.includes("Unassigned"))!;
+    await user.click(assignDropdown);
 
     const option = await screen.findByRole("option", { name: /Bob Agent/ });
     await user.click(option);
@@ -212,28 +196,22 @@ describe("TicketDetail page", () => {
 
   it("calls PATCH with null when unassigning", async () => {
     const user = userEvent.setup();
-    const assignedTicket = {
+    setupGetMock({
       ...mockTicket,
       assignedAgent: { id: "agent-1", name: "Bob Agent", email: "bob@example.com" },
-    };
-
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: assignedTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
+    });
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...mockTicket, assignedAgent: null } },
     });
 
-    mockedAxios.patch.mockResolvedValue({ data: { ticket: { ...mockTicket, assignedAgent: null } } });
-
     renderTicketDetail();
-
     await screen.findByText("Cannot log in");
 
-    const combobox = screen.getByRole("combobox");
-    await user.click(combobox);
+    const comboboxes = screen.getAllByRole("combobox");
+    const assignDropdown = comboboxes.find((el) => el.textContent?.includes("Bob Agent"))!;
+    await user.click(assignDropdown);
 
-    const option = await screen.findByRole("option", { name: /Unassigned/ });
+    const option = await screen.findByRole("option", { name: /^Unassigned$/ });
     await user.click(option);
 
     await waitFor(() => {
@@ -242,57 +220,171 @@ describe("TicketDetail page", () => {
       });
     });
   });
+});
 
-  it("shows error message when assignment fails", async () => {
-    const user = userEvent.setup();
+describe("TicketDetail — status update", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSession = mockAdminSession;
+  });
 
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
-    });
-
-    mockedAxios.patch.mockRejectedValue(new Error("Server error"));
-
+  it("shows status dropdown with current value", async () => {
+    setupGetMock();
     renderTicketDetail();
 
     await screen.findByText("Cannot log in");
-
-    const combobox = screen.getByRole("combobox");
-    await user.click(combobox);
-
-    const option = await screen.findByRole("option", { name: /Bob Agent/ });
-    await user.click(option);
-
-    await screen.findByText(/failed to assign agent/i);
+    const comboboxes = screen.getAllByRole("combobox");
+    const statusDropdown = comboboxes.find((el) => el.textContent?.includes("Open"))!;
+    expect(statusDropdown).toBeInTheDocument();
   });
 
-  it("shows 'Back to tickets' link", async () => {
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: mockTicket } });
-      }
-      return Promise.resolve({ data: { users: mockAgents } });
+  it("calls PATCH with new status when changed", async () => {
+    const user = userEvent.setup();
+    setupGetMock();
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...mockTicket, status: "RESOLVED" } },
     });
 
     renderTicketDetail();
+    await screen.findByText("Cannot log in");
 
-    const link = screen.getByRole("link", { name: /back to tickets/i });
-    expect(link).toHaveAttribute("href", "/tickets");
+    const comboboxes = screen.getAllByRole("combobox");
+    const statusDropdown = comboboxes.find((el) => el.textContent?.includes("Open"))!;
+    await user.click(statusDropdown);
+
+    const option = await screen.findByRole("option", { name: /Resolved/ });
+    await user.click(option);
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith("/api/tickets/1", {
+        status: "RESOLVED",
+      });
+    });
   });
 
-  it("fetches the correct ticket by ID from the URL", async () => {
-    mockedAxios.get.mockImplementation((url: string) => {
-      if (url.includes("/api/tickets/")) {
-        return Promise.resolve({ data: { ticket: { ...mockTicket, id: 42 } } });
-      }
-      return Promise.resolve({ data: { users: [] } });
+  it("agent can also change status", async () => {
+    const user = userEvent.setup();
+    currentSession = mockAgentSession;
+    setupGetMock({
+      ...mockTicket,
+      assignedAgent: { id: "agent-1", name: "Agent", email: "agent@test.com" },
+    });
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...mockTicket, status: "CLOSED" } },
     });
 
-    renderTicketDetail("42");
+    renderTicketDetail();
+    await screen.findByText("Cannot log in");
 
-    await screen.findByText("#42");
-    expect(mockedAxios.get).toHaveBeenCalledWith("/api/tickets/42");
+    const comboboxes = screen.getAllByRole("combobox");
+    const statusDropdown = comboboxes.find((el) => el.textContent?.includes("Open"))!;
+    await user.click(statusDropdown);
+
+    const option = await screen.findByRole("option", { name: /Closed/ });
+    await user.click(option);
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith("/api/tickets/1", {
+        status: "CLOSED",
+      });
+    });
+  });
+});
+
+describe("TicketDetail — category update", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSession = mockAdminSession;
+  });
+
+  it("shows category dropdown with current value", async () => {
+    setupGetMock();
+    renderTicketDetail();
+
+    await screen.findByText("Cannot log in");
+    const comboboxes = screen.getAllByRole("combobox");
+    const categoryDropdown = comboboxes.find((el) => el.textContent?.includes("Technical Question"))!;
+    expect(categoryDropdown).toBeInTheDocument();
+  });
+
+  it("calls PATCH with new category when changed", async () => {
+    const user = userEvent.setup();
+    setupGetMock();
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...mockTicket, category: "REFUND_REQUEST" } },
+    });
+
+    renderTicketDetail();
+    await screen.findByText("Cannot log in");
+
+    const comboboxes = screen.getAllByRole("combobox");
+    const categoryDropdown = comboboxes.find((el) => el.textContent?.includes("Technical Question"))!;
+    await user.click(categoryDropdown);
+
+    const option = await screen.findByRole("option", { name: /Refund Request/ });
+    await user.click(option);
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith("/api/tickets/1", {
+        category: "REFUND_REQUEST",
+      });
+    });
+  });
+
+  it("calls PATCH with null when clearing category", async () => {
+    const user = userEvent.setup();
+    setupGetMock();
+    mockedAxios.patch.mockResolvedValue({
+      data: { ticket: { ...mockTicket, category: null } },
+    });
+
+    renderTicketDetail();
+    await screen.findByText("Cannot log in");
+
+    const comboboxes = screen.getAllByRole("combobox");
+    const categoryDropdown = comboboxes.find((el) => el.textContent?.includes("Technical Question"))!;
+    await user.click(categoryDropdown);
+
+    const option = await screen.findByRole("option", { name: /^None$/ });
+    await user.click(option);
+
+    await waitFor(() => {
+      expect(mockedAxios.patch).toHaveBeenCalledWith("/api/tickets/1", {
+        category: null,
+      });
+    });
+  });
+
+  it("shows 'None' when ticket has no category", async () => {
+    setupGetMock({ ...mockTicket, category: null });
+    renderTicketDetail();
+
+    await screen.findByText("Cannot log in");
+    expect(screen.getByText("None")).toBeInTheDocument();
+  });
+});
+
+describe("TicketDetail — error handling", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    currentSession = mockAdminSession;
+  });
+
+  it("shows error message when update fails", async () => {
+    const user = userEvent.setup();
+    setupGetMock();
+    mockedAxios.patch.mockRejectedValue(new Error("Server error"));
+
+    renderTicketDetail();
+    await screen.findByText("Cannot log in");
+
+    const comboboxes = screen.getAllByRole("combobox");
+    const statusDropdown = comboboxes.find((el) => el.textContent?.includes("Open"))!;
+    await user.click(statusDropdown);
+
+    const option = await screen.findByRole("option", { name: /Resolved/ });
+    await user.click(option);
+
+    await screen.findByText(/failed to update ticket/i);
   });
 });

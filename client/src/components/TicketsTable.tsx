@@ -52,9 +52,9 @@ export const statusLabel: Record<TicketStatus, string> = {
 };
 
 export const categoryLabel: Record<TicketCategory, string> = {
-  GENERAL_QUESTION: "General",
-  TECHNICAL_QUESTION: "Technical",
-  REFUND_REQUEST: "Refund",
+  GENERAL_QUESTION: "General Question",
+  TECHNICAL_QUESTION: "Technical Question",
+  REFUND_REQUEST: "Refund Request",
 };
 
 const statusVariant: Record<

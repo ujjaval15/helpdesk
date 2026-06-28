@@ -92,11 +92,13 @@ router.get("/:id", requireAuth, async (req, res) => {
   res.json({ ticket });
 });
 
-export const assignTicketSchema = z.object({
-  assignedAgentId: z.string().min(1).nullable(),
+export const updateTicketSchema = z.object({
+  assignedAgentId: z.string().min(1).nullable().optional(),
+  status: z.nativeEnum(TicketStatus).optional(),
+  category: z.nativeEnum(TicketCategory).nullable().optional(),
 });
 
-router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
+router.patch("/:id", requireAuth, async (req, res) => {
   const id = Number(req.params.id);
 
   if (Number.isNaN(id)) {
@@ -104,19 +106,34 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
     return;
   }
 
-  const result = assignTicketSchema.safeParse(req.body);
+  const result = updateTicketSchema.safeParse(req.body);
 
   if (!result.success) {
-    res.status(400).json({ error: "assignedAgentId must be a string or null" });
+    const errors: Record<string, string> = {};
+    for (const issue of result.error.issues) {
+      errors[issue.path[0] as string] = issue.message;
+    }
+    res.status(400).json({ errors });
     return;
   }
 
-  const { assignedAgentId } = result.data;
+  const { assignedAgentId, status, category } = result.data;
+  const isAdmin = req.user!.role === "admin";
+
+  if (assignedAgentId !== undefined && !isAdmin) {
+    res.status(403).json({ error: "Only admins can assign agents" });
+    return;
+  }
 
   const ticket = await prisma.ticket.findUnique({ where: { id } });
 
   if (!ticket) {
     res.status(404).json({ error: "Ticket not found" });
+    return;
+  }
+
+  if (!isAdmin && ticket.assignedAgentId !== req.user!.id) {
+    res.status(403).json({ error: "Forbidden" });
     return;
   }
 
@@ -131,9 +148,14 @@ router.patch("/:id", requireAuth, requireAdmin, async (req, res) => {
     }
   }
 
+  const data: Record<string, unknown> = {};
+  if (assignedAgentId !== undefined) data.assignedAgentId = assignedAgentId;
+  if (status !== undefined) data.status = status;
+  if (category !== undefined) data.category = category;
+
   const updated = await prisma.ticket.update({
     where: { id },
-    data: { assignedAgentId },
+    data,
     include: {
       assignedAgent: {
         select: { id: true, name: true, email: true },
