@@ -13,26 +13,33 @@ describe("ReplyForm", () => {
     vi.clearAllMocks();
   });
 
-  it("renders textarea and submit button", () => {
+  it("renders textarea, polish button, and submit button", () => {
     renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
     expect(
       screen.getByPlaceholderText("Write a reply..."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /polish/i }),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /send reply/i }),
     ).toBeInTheDocument();
   });
 
-  it("shows validation error when submitting empty form", async () => {
+  it("disables send and polish buttons when textarea is empty", () => {
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
+    expect(screen.getByRole("button", { name: /send reply/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /polish/i })).toBeDisabled();
+  });
+
+  it("enables send and polish buttons when textarea has content", async () => {
     const user = userEvent.setup();
     renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
-    await user.click(screen.getByRole("button", { name: /send reply/i }));
+    await user.type(screen.getByPlaceholderText("Write a reply..."), "Hello");
 
-    expect(
-      await screen.findByText("Reply cannot be empty"),
-    ).toBeInTheDocument();
-    expect(mockedAxios.post).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: /send reply/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /polish/i })).toBeEnabled();
   });
 
   it("calls POST with reply body when submitted", async () => {
@@ -118,5 +125,74 @@ describe("ReplyForm", () => {
     await user.click(screen.getByRole("button", { name: /send reply/i }));
 
     expect(await screen.findByText("Sending...")).toBeInTheDocument();
+  });
+
+  it("calls polish endpoint with draft and ticketBody", async () => {
+    const user = userEvent.setup();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: { polished: "Polished reply text" },
+    });
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="My issue" />);
+
+    await user.type(
+      screen.getByPlaceholderText("Write a reply..."),
+      "rough draft",
+    );
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(mockedAxios.post).toHaveBeenCalledWith(
+        "/api/tickets/42/polish-reply",
+        { draft: "rough draft", ticketBody: "My issue" },
+      );
+    });
+  });
+
+  it("replaces textarea content with polished text on success", async () => {
+    const user = userEvent.setup();
+    mockedAxios.post.mockResolvedValueOnce({
+      data: { polished: "Polished reply text" },
+    });
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="My issue" />);
+
+    const textarea = screen.getByPlaceholderText("Write a reply...");
+    await user.type(textarea, "rough draft");
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(textarea).toHaveValue("Polished reply text");
+    });
+  });
+
+  it("shows 'Polishing...' while polish request is pending", async () => {
+    const user = userEvent.setup();
+    mockedAxios.post.mockReturnValue(new Promise(() => {}));
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="My issue" />);
+
+    await user.type(
+      screen.getByPlaceholderText("Write a reply..."),
+      "rough draft",
+    );
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    expect(await screen.findByText("Polishing...")).toBeInTheDocument();
+  });
+
+  it("shows error alert when polish request fails", async () => {
+    const user = userEvent.setup();
+    mockedAxios.post.mockRejectedValueOnce(new Error("API error"));
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="My issue" />);
+
+    await user.type(
+      screen.getByPlaceholderText("Write a reply..."),
+      "rough draft",
+    );
+    await user.click(screen.getByRole("button", { name: /polish/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Failed to polish reply.",
+      );
+    });
   });
 });

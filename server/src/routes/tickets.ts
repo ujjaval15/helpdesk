@@ -210,5 +210,5 @@ router.post("/:id/polish-reply", requireAuth, async (req, res) => {
   res.json({ polished: text });
 });
 
-export { createReplySchema };
+export { createReplySchema, polishReplySchema };
 export default router;
