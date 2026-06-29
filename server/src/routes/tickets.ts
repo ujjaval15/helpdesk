@@ -210,5 +210,31 @@ router.post("/:id/polish-reply", requireAuth, async (req, res) => {
   res.json({ polished: text });
 });
 
+router.post("/:id/summarize", requireAuth, async (req, res) => {
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
+
+  const ticket = await findTicketWithAccess(id, req.user!.id, req.user!.role === "admin", res);
+  if (!ticket) return;
+
+  const replies = await prisma.reply.findMany({
+    where: { ticketId: id },
+    orderBy: { createdAt: "asc" },
+    select: { body: true, senderName: true, senderType: true },
+  });
+
+  const conversation = replies
+    .map((r) => `${r.senderName} (${r.senderType}): ${r.body}`)
+    .join("\n\n");
+
+  const { text } = await generateText({
+    model: anthropic("claude-haiku-4-5-20251001"),
+    system: `You are a helpful assistant that summarizes support tickets. Provide a concise summary of the ticket and its conversation history. Include the key issue, any actions taken, and the current state. Keep it brief — 2-4 sentences. Return only the summary, no preamble.`,
+    prompt: `Ticket subject: ${ticket.subject}\nCustomer: ${ticket.customerName}\nStatus: ${ticket.status}\n\nOriginal message:\n${ticket.body}${conversation ? `\n\nConversation:\n${conversation}` : ""}`,
+  });
+
+  res.json({ summary: text });
+});
+
 export { createReplySchema, polishReplySchema };
 export default router;

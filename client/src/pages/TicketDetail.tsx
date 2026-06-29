@@ -11,6 +11,7 @@ import TicketMessage from "@/components/ticket-detail/TicketMessage";
 import TicketSidebar from "@/components/ticket-detail/TicketSidebar";
 import ReplyThread from "@/components/ticket-detail/ReplyThread";
 import ReplyForm from "@/components/ticket-detail/ReplyForm";
+import TicketSummary from "@/components/ticket-detail/TicketSummary";
 import {
   type Agent,
   type TicketDetail,
@@ -127,6 +128,8 @@ function TicketDetailPage() {
             <div className="mt-6 grid grid-cols-1 gap-8 lg:grid-cols-3">
               <div className="space-y-6 lg:col-span-2">
                 <TicketMessage ticket={data} />
+
+                <TicketSummary ticketId={id!} />
 
                 <ReplyThread replies={replies} isPending={repliesPending} />
 
