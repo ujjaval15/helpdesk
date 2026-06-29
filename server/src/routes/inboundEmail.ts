@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "../db";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { validateBody } from "../lib/route-utils";
+import { classifyTicket } from "../lib/classify-ticket";
 
 const router = Router();
 
@@ -49,6 +50,8 @@ router.post("/", requireWebhookSecret, async (req, res) => {
       customerName: fromName,
     },
   });
+
+  classifyTicket(ticket);
 
   res.status(201).json({ ticket: { id: ticket.id } });
 });
