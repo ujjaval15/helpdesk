@@ -1,5 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
+import { generateText } from "ai";
+import { anthropic } from "@ai-sdk/anthropic";
 import { requireAuth } from "../middleware/requireAuth";
 import prisma from "../db";
 import { TicketStatus, TicketCategory, Role, SenderType } from "../generated/prisma/enums";
@@ -182,6 +184,30 @@ router.post("/:id/replies", requireAuth, async (req, res) => {
   });
 
   res.status(201).json({ reply });
+});
+
+const polishReplySchema = z.object({
+  draft: z.string().min(1).max(5000),
+  ticketBody: z.string(),
+});
+
+router.post("/:id/polish-reply", requireAuth, async (req, res) => {
+  const id = parseIntId(req.params.id, res);
+  if (id === null) return;
+
+  const data = validateBody(polishReplySchema, req.body, res);
+  if (!data) return;
+
+  const ticket = await findTicketWithAccess(id, req.user!.id, req.user!.role === "admin", res);
+  if (!ticket) return;
+
+  const { text } = await generateText({
+    model: anthropic("claude-haiku-4-5-20251001"),
+    system: `You are a helpful assistant that improves customer support replies. Polish the agent's draft reply to be more professional, clear, and empathetic. Keep the same meaning and intent. Address the customer by their name at the start. End the reply with a sign-off using the agent's name and domain. Return only the improved reply text, no preamble.`,
+    prompt: `Ticket subject: ${ticket.subject}\nTicket message: ${data.ticketBody}\n\nCustomer name: ${ticket.customerName.split(" ")[0]}\nAgent name: ${req.user!.name}\nAgent domain: ${req.user!.email.split("@")[1]}\n\nAgent's draft reply:\n${data.draft}`,
+  });
+
+  res.json({ polished: text });
 });
 
 export { createReplySchema };

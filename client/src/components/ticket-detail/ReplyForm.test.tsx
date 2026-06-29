@@ -14,7 +14,7 @@ describe("ReplyForm", () => {
   });
 
   it("renders textarea and submit button", () => {
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
     expect(
       screen.getByPlaceholderText("Write a reply..."),
     ).toBeInTheDocument();
@@ -25,7 +25,7 @@ describe("ReplyForm", () => {
 
   it("shows validation error when submitting empty form", async () => {
     const user = userEvent.setup();
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
     await user.click(screen.getByRole("button", { name: /send reply/i }));
 
@@ -49,7 +49,7 @@ describe("ReplyForm", () => {
         },
       },
     });
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
     await user.type(
       screen.getByPlaceholderText("Write a reply..."),
@@ -79,7 +79,7 @@ describe("ReplyForm", () => {
         },
       },
     });
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
     const textarea = screen.getByPlaceholderText("Write a reply...");
     await user.type(textarea, "Test reply");
@@ -93,7 +93,7 @@ describe("ReplyForm", () => {
   it("shows error alert when submission fails", async () => {
     const user = userEvent.setup();
     mockedAxios.post.mockRejectedValueOnce(new Error("Network error"));
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
     await user.type(
       screen.getByPlaceholderText("Write a reply..."),
@@ -109,7 +109,7 @@ describe("ReplyForm", () => {
   it("shows 'Sending...' while request is pending", async () => {
     const user = userEvent.setup();
     mockedAxios.post.mockReturnValue(new Promise(() => {}));
-    renderWithProviders(<ReplyForm ticketId="42" />);
+    renderWithProviders(<ReplyForm ticketId="42" ticketBody="Test body" />);
 
     await user.type(
       screen.getByPlaceholderText("Write a reply..."),

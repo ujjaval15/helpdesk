@@ -130,7 +130,7 @@ function TicketDetailPage() {
 
                 <ReplyThread replies={replies} isPending={repliesPending} />
 
-                <ReplyForm ticketId={id!} />
+                <ReplyForm ticketId={id!} ticketBody={data.body} />
               </div>
 
               <TicketSidebar
