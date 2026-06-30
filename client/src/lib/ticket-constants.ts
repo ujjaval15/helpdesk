@@ -1,6 +1,8 @@
 import { z } from "zod";
 
 export const TicketStatus = {
+  NEW: "NEW",
+  PROCESSING: "PROCESSING",
   OPEN: "OPEN",
   RESOLVED: "RESOLVED",
   CLOSED: "CLOSED",
@@ -20,6 +22,8 @@ export type TicketCategory =
 export type SenderType = "AGENT" | "CUSTOMER";
 
 export const statusLabel: Record<TicketStatus, string> = {
+  NEW: "New",
+  PROCESSING: "Processing",
   OPEN: "Open",
   RESOLVED: "Resolved",
   CLOSED: "Closed",
@@ -33,8 +37,10 @@ export const categoryLabel: Record<TicketCategory, string> = {
 
 export const statusVariant: Record<
   TicketStatus,
-  "destructive" | "default" | "secondary"
+  "destructive" | "default" | "secondary" | "outline"
 > = {
+  NEW: "outline",
+  PROCESSING: "outline",
   OPEN: "destructive",
   RESOLVED: "default",
   CLOSED: "secondary",

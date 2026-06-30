@@ -5,6 +5,9 @@ import rateLimit from "express-rate-limit";
 import { toNodeHandler } from "better-auth/node";
 import { auth } from "./lib/auth";
 import { requireAuth } from "./middleware/requireAuth";
+import boss from "./lib/queue";
+import { CLASSIFY_TICKET_QUEUE, classifyTicketHandler } from "./lib/classify-ticket";
+import { AUTO_RESOLVE_TICKET_QUEUE, autoResolveTicketHandler } from "./lib/auto-resolve-ticket";
 import usersRouter from "./routes/users";
 import inboundEmailRouter from "./routes/inboundEmail";
 import ticketsRouter from "./routes/tickets";
@@ -51,7 +54,12 @@ app.use("/api/tickets", ticketsRouter);
 
 const PORT = process.env.PORT || 3000;
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
+  await boss.start();
+  await boss.createQueue(CLASSIFY_TICKET_QUEUE);
+  await boss.work(CLASSIFY_TICKET_QUEUE, classifyTicketHandler);
+  await boss.createQueue(AUTO_RESOLVE_TICKET_QUEUE);
+  await boss.work(AUTO_RESOLVE_TICKET_QUEUE, autoResolveTicketHandler);
   console.log(`Server running on http://localhost:${PORT}`);
 });
 

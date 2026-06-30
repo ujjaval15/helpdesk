@@ -24,10 +24,11 @@ router.get("/", requireAuth, async (req, res) => {
   const pageSize = Math.min(MAX_PAGE_SIZE, Math.max(1, Number(req.query.pageSize) || DEFAULT_PAGE_SIZE));
 
   const where: Record<string, unknown> = isAdmin
-    ? {}
-    : { assignedAgentId: req.user!.id };
+    ? { status: { notIn: ["NEW", "PROCESSING"] } }
+    : { assignedAgentId: req.user!.id, status: { notIn: ["NEW", "PROCESSING"] } };
 
-  if (typeof status === "string" && validStatuses.has(status as TicketStatus)) {
+  const visibleStatuses = new Set(["OPEN", "RESOLVED", "CLOSED"]);
+  if (typeof status === "string" && visibleStatuses.has(status)) {
     where.status = status;
   }
 

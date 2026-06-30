@@ -86,7 +86,7 @@ function Tickets() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={ALL}>All statuses</SelectItem>
-              {Object.values(TicketStatus).map((s) => (
+              {(["OPEN", "RESOLVED", "CLOSED"] as TicketStatus[]).map((s) => (
                 <SelectItem key={s} value={s}>
                   {statusLabel[s]}
                 </SelectItem>

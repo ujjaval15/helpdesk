@@ -3,7 +3,8 @@ import { z } from "zod";
 import prisma from "../db";
 import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { validateBody } from "../lib/route-utils";
-import { classifyTicket } from "../lib/classify-ticket";
+import { enqueueClassifyTicket } from "../lib/classify-ticket";
+import { enqueueAutoResolveTicket } from "../lib/auto-resolve-ticket";
 
 const router = Router();
 
@@ -30,7 +31,7 @@ router.post("/", requireWebhookSecret, async (req, res) => {
     where: {
       customerEmail,
       subject: normalizedSubject,
-      status: "OPEN",
+      status: { in: ["NEW", "PROCESSING", "OPEN"] },
     },
     select: { id: true },
   });
@@ -51,7 +52,8 @@ router.post("/", requireWebhookSecret, async (req, res) => {
     },
   });
 
-  classifyTicket(ticket);
+  enqueueClassifyTicket(ticket);
+  enqueueAutoResolveTicket(ticket);
 
   res.status(201).json({ ticket: { id: ticket.id } });
 });

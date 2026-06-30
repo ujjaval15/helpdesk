@@ -13,6 +13,8 @@ enum Role {
 }
 
 enum TicketStatus {
+  NEW
+  PROCESSING
   OPEN
   RESOLVED
   CLOSED
@@ -52,7 +54,7 @@ model Ticket {
   id              Int             @id @default(autoincrement())
   subject         String
   body            String
-  status          TicketStatus    @default(OPEN)
+  status          TicketStatus    @default(NEW)
   category        TicketCategory?
   customerEmail   String
   customerName    String
