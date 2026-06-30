@@ -5,6 +5,7 @@ import { requireWebhookSecret } from "../middleware/requireWebhookSecret";
 import { validateBody } from "../lib/route-utils";
 import { enqueueClassifyTicket } from "../lib/classify-ticket";
 import { enqueueAutoResolveTicket } from "../lib/auto-resolve-ticket";
+import { getAIAgentId } from "../lib/ai-agent";
 
 const router = Router();
 
@@ -43,12 +44,15 @@ router.post("/", requireWebhookSecret, async (req, res) => {
     return;
   }
 
+  const aiAgentId = await getAIAgentId();
+
   const ticket = await prisma.ticket.create({
     data: {
       subject: normalizedSubject,
       body,
       customerEmail,
       customerName: fromName,
+      assignedAgentId: aiAgentId,
     },
   });
 

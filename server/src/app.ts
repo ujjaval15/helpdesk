@@ -56,10 +56,11 @@ const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, async () => {
   await boss.start();
-  await boss.createQueue(CLASSIFY_TICKET_QUEUE);
-  await boss.work(CLASSIFY_TICKET_QUEUE, classifyTicketHandler);
-  await boss.createQueue(AUTO_RESOLVE_TICKET_QUEUE);
-  await boss.work(AUTO_RESOLVE_TICKET_QUEUE, autoResolveTicketHandler);
+  const queueOptions = { retryLimit: 3, expireInMinutes: 2 };
+  await boss.createQueue(CLASSIFY_TICKET_QUEUE, queueOptions);
+  await boss.work(CLASSIFY_TICKET_QUEUE, { teamSize: 3 }, classifyTicketHandler);
+  await boss.createQueue(AUTO_RESOLVE_TICKET_QUEUE, queueOptions);
+  await boss.work(AUTO_RESOLVE_TICKET_QUEUE, { teamSize: 3 }, autoResolveTicketHandler);
   console.log(`Server running on http://localhost:${PORT}`);
 });
 

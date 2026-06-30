@@ -50,12 +50,12 @@ If canResolve is false, set reply to an empty string.`,
     const cleaned = text.replace(/```(?:json)?\s*/g, "").trim();
     result = JSON.parse(cleaned);
   } catch {
-    await prisma.ticket.update({ where: { id }, data: { status: "OPEN" } });
+    await prisma.ticket.update({ where: { id }, data: { status: "OPEN", assignedAgentId: null } });
     return;
   }
 
   if (!result.canResolve || result.confidence === "low" || !result.reply) {
-    await prisma.ticket.update({ where: { id }, data: { status: "OPEN" } });
+    await prisma.ticket.update({ where: { id }, data: { status: "OPEN", assignedAgentId: null } });
     return;
   }
 

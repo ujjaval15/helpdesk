@@ -6,6 +6,7 @@ import { requireAuth } from "../middleware/requireAuth";
 import prisma from "../db";
 import { TicketStatus, TicketCategory, Role, SenderType } from "../generated/prisma/enums";
 import { validateBody, parseIntId, findTicketWithAccess } from "../lib/route-utils";
+import { getAIAgentId } from "../lib/ai-agent";
 
 const router = Router();
 
@@ -61,6 +62,87 @@ router.get("/", requireAuth, async (req, res) => {
   ]);
 
   res.json({ tickets, pagination: { page, pageSize, total, totalPages: Math.ceil(total / pageSize) } });
+});
+
+export function averageResolutionMs(
+  tickets: { createdAt: Date; updatedAt: Date }[],
+): number | null {
+  if (tickets.length === 0) return null;
+  const total = tickets.reduce(
+    (sum, t) => sum + (t.updatedAt.getTime() - t.createdAt.getTime()),
+    0,
+  );
+  return total / tickets.length;
+}
+
+router.get("/stats", requireAuth, async (req, res) => {
+  const isAdmin = req.user!.role === "admin";
+  const scope = isAdmin ? {} : { assignedAgentId: req.user!.id };
+
+  const settled = { status: { notIn: [TicketStatus.NEW, TicketStatus.PROCESSING] } };
+  const baseWhere = { ...scope, ...settled };
+
+  const aiAgentId = await getAIAgentId();
+
+  const [total, open, resolvedByAI, resolvedTickets] = await Promise.all([
+    prisma.ticket.count({ where: baseWhere }),
+    prisma.ticket.count({ where: { ...scope, status: TicketStatus.OPEN } }),
+    prisma.ticket.count({ where: { ...baseWhere, assignedAgentId: aiAgentId } }),
+    prisma.ticket.findMany({
+      where: { ...scope, status: { in: [TicketStatus.RESOLVED, TicketStatus.CLOSED] } },
+      select: { createdAt: true, updatedAt: true },
+    }),
+  ]);
+
+  res.json({
+    total,
+    open,
+    resolvedByAI,
+    pctResolvedByAI: total > 0 ? (resolvedByAI / total) * 100 : 0,
+    avgResolutionMs: averageResolutionMs(resolvedTickets),
+  });
+});
+
+export function buildDailyCountsMap(
+  tickets: { createdAt: Date }[],
+  days: number,
+): { date: string; count: number }[] {
+  const map = new Map<string, number>();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  for (let i = days - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    map.set(d.toISOString().slice(0, 10), 0);
+  }
+
+  for (const t of tickets) {
+    const key = t.createdAt.toISOString().slice(0, 10);
+    if (map.has(key)) map.set(key, map.get(key)! + 1);
+  }
+
+  return Array.from(map, ([date, count]) => ({ date, count }));
+}
+
+router.get("/stats/daily", requireAuth, async (req, res) => {
+  const isAdmin = req.user!.role === "admin";
+  const scope = isAdmin ? {} : { assignedAgentId: req.user!.id };
+
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  thirtyDaysAgo.setHours(0, 0, 0, 0);
+
+  const tickets = await prisma.ticket.findMany({
+    where: {
+      ...scope,
+      createdAt: { gte: thirtyDaysAgo },
+      status: { notIn: [TicketStatus.NEW, TicketStatus.PROCESSING] },
+    },
+    select: { createdAt: true },
+  });
+
+  res.json({ daily: buildDailyCountsMap(tickets, 30) });
 });
 
 router.get("/:id", requireAuth, async (req, res) => {

@@ -44,6 +44,12 @@ function NavBar() {
             Helpdesk
           </Link>
           <Link
+            to="/dashboard"
+            className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Dashboard
+          </Link>
+          <Link
             to="/tickets"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
